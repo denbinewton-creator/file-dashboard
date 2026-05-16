@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<!-- saved from url=(0047)file:///C:/Users/denbi/Downloads/dashboard.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Metadata Dashboard</title>
+<script src="./File Metadata Dashboard_files/chart.umd.min.js.download"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0b0d12;
+    --surface: #12151e;
+    --card: #181c27;
+    --border: #252a38;
+    --text: #e4e7f0;
+    --muted: #56607a;
+    --accent: #f5c542;
+    --red: #f04f5a;
+    --green: #3de89b;
+    --blue: #4f8ef5;
+    --purple: #a78bfa;
+    --teal: #2dd4bf;
+    --orange: #fb923c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 32px 40px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+
+  header h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .mono { font-family: 'DM Mono', monospace; }
+  .muted { color: var(--muted); }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+
+  .kpi-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .kpi-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+  }
+
+  .card.full { grid-column: span 2; }
+
+  .card-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+
+  canvas { max-width: 100%; }
+
+  /* TABLE */
+  .tbl-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  thead th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+  }
+
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+  tbody td {
+    padding: 8px 12px;
+    color: var(--text);
+  }
+
+  .badge {
+    background: var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .overdue-val { color: var(--red); font-weight: 600; }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .btn {
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    padding: 4px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  .btn:disabled { opacity: 0.35; cursor: default; }
+
+  /* HEATMAP */
+  .heatmap-wrap { overflow-x: auto; }
+
+  .heatmap-grid {
+    display: inline-grid;
+    gap: 4px;
+  }
+
+  .heatmap-cell {
+    width: 64px;
+    height: 38px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    transition: transform 0.1s;
+    cursor: default;
+  }
+
+  .heatmap-cell:hover { transform: scale(1.08); z-index: 2; }
+
+  .heatmap-label-row {
+    display: flex;
+    margin-bottom: 4px;
+  }
+
+  .heatmap-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .heatmap-row-label {
+    width: 80px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    padding-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .heatmap-col-label {
+    width: 64px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 88px;
+  }
+
+  .legend-swatch {
+    width: 24px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  footer {
+    margin-top: 32px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .disp-legend {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    align-items: center;
+  }
+
+  .disp-legend span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FILE METADATA <span>DASHBOARD</span></h1>
+  <span class="mono muted" style="font-size:12px">Today: 2026-05-04</span>
+  <span class="mono muted" style="font-size:12px; margin-left:auto">1000 records</span>
+</header>
+
+<div class="kpis">
+  <div class="kpi">
+    <div class="kpi-label">Total Files</div>
+    <div class="kpi-value" style="color:var(--accent)">1000</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Overdue Disposal</div>
+    <div class="kpi-value" style="color:var(--red)">313</div>
+    <div class="kpi-sub">files past destruction date</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Unique Customers</div>
+    <div class="kpi-value" style="color:var(--blue)">8</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Unique Creators</div>
+    <div class="kpi-value" style="color:var(--green)">6</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Inbound / Outbound</div>
+    <div class="kpi-value" style="color:var(--purple)">802 / 198</div>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- 1. Timeline created_at -->
+  <div class="card full">
+    <div class="card-title">Files Created Over Time (Monthly)</div>
+    <canvas id="timelineChart" height="642" style="display: block; box-sizing: border-box; height: 642px; width: 2411px;" width="2411"></canvas>
+  </div>
+
+  <!-- 2. Creator bar -->
+  <div class="card">
+    <div class="card-title">Files by Creator (Least → Most)</div>
+    <canvas id="creatorChart" height="625" width="1173" style="display: block; box-sizing: border-box; height: 625px; width: 1173px;"></canvas>
+  </div>
+
+  <!-- 3. Customer bar -->
+  <div class="card">
+    <div class="card-title">Files per Customer (Least → Most)</div>
+    <canvas id="customerChart" height="625" width="1173" style="display: block; box-sizing: border-box; height: 625px; width: 1173px;"></canvas>
+  </div>
+
+  <!-- 4. Disposal timeline -->
+  <div class="card full">
+    <div class="card-title">File Disposal Schedule (Monthly)</div>
+    <canvas id="disposalChart" height="642" width="2411" style="display: block; box-sizing: border-box; height: 642px; width: 2411px;"></canvas>
+    <div class="disp-legend">
+      <span><span class="dot" style="background:var(--red)"></span>Past disposal date</span>
+      <span><span class="dot" style="background:var(--teal)"></span>Upcoming disposal</span>
+      <span style="margin-left:8px;color:var(--red)">▎ = Today (2026-05)</span>
+    </div>
+  </div>
+
+  <!-- 5. Overdue table -->
+  <div class="card full">
+    <div class="card-title">Overdue Files — Should Have Been Destroyed (<span id="overdueTotal">313</span> total)</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Customer</th><th>File Name</th><th>Category</th>
+            <th>Created</th><th>Disposal Policy</th><th>Due Date</th><th>Overdue By</th>
+          </tr>
+        </thead>
+        <tbody id="overdueBody">
+    <tr>
+      <td class="mono muted">789321654</td>
+      <td>draft summary.pdf</td>
+      <td><span class="badge">letter</span></td>
+      <td class="mono muted">2022-01-03</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-07-03</td>
+      <td class="overdue-val mono">3y 10m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">987654321</td>
+      <td>draft declaration.xlsx</td>
+      <td><span class="badge">spreadsheet</span></td>
+      <td class="mono muted">2022-01-04</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-07-04</td>
+      <td class="overdue-val mono">3y 10m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">444555666</td>
+      <td>original proposal.docx</td>
+      <td><span class="badge">receipt</span></td>
+      <td class="mono muted">2022-01-22</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-07-22</td>
+      <td class="overdue-val mono">3y 9m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">123456789</td>
+      <td>verified response.jpeg</td>
+      <td><span class="badge">photo</span></td>
+      <td class="mono muted">2022-02-01</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-01</td>
+      <td class="overdue-val mono">3y 9m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">321654987</td>
+      <td>external memo.xlsx</td>
+      <td><span class="badge">spreadsheet</span></td>
+      <td class="mono muted">2022-02-06</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-06</td>
+      <td class="overdue-val mono">3y 9m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">111999888</td>
+      <td>internal catalogue.docx</td>
+      <td><span class="badge">letter</span></td>
+      <td class="mono muted">2022-02-08</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-08</td>
+      <td class="overdue-val mono">3y 8m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">654987321</td>
+      <td>monthly certificate.jpeg</td>
+      <td><span class="badge">receipt</span></td>
+      <td class="mono muted">2022-02-09</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-09</td>
+      <td class="overdue-val mono">3y 8m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">789321654</td>
+      <td>internal log.docx</td>
+      <td><span class="badge">letter</span></td>
+      <td class="mono muted">2022-02-11</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-11</td>
+      <td class="overdue-val mono">3y 8m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">321654987</td>
+      <td>interim invoice.pdf</td>
+      <td><span class="badge">letter</span></td>
+      <td class="mono muted">2022-02-15</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-15</td>
+      <td class="overdue-val mono">3y 8m</td>
+    </tr>
+  
+    <tr>
+      <td class="mono muted">987654321</td>
+      <td>general invoice.pdf</td>
+      <td><span class="badge">letter</span></td>
+      <td class="mono muted">2022-02-22</td>
+      <td class="mono muted">6 months</td>
+      <td class="mono muted">2022-08-22</td>
+      <td class="overdue-val mono">3y 8m</td>
+    </tr>
+  </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span id="pageInfo">Page 1 of 32</span>
+      <button class="btn" id="prevBtn" onclick="changePage(-1)" disabled="">← Prev</button>
+      <button class="btn" id="nextBtn" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <!-- 6. Category pie -->
+  <div class="card">
+    <div class="card-title">File Category Spread</div>
+    <canvas id="catPie" height="1173" width="1173" style="display: block; box-sizing: border-box; height: 1173px; width: 1173px;"></canvas>
+  </div>
+
+  <!-- 7. Customer type pie -->
+  <div class="card">
+    <div class="card-title">Files per Customer Type</div>
+    <canvas id="typePie" height="1173" width="1173" style="display: block; box-sizing: border-box; height: 1173px; width: 1173px;"></canvas>
+  </div>
+
+  <!-- 8. Heatmap -->
+  <div class="card full">
+    <div class="card-title">Customer × Creator Relationship Heatmap</div>
+    <div class="heatmap-wrap" id="heatmapWrap"><div class="heatmap-label-row"><div style="width:88px"></div><div class="heatmap-col-label">112233</div><div class="heatmap-col-label">123456</div><div class="heatmap-col-label">334455</div><div class="heatmap-col-label">445566</div><div class="heatmap-col-label">667788</div><div class="heatmap-col-label">789012</div></div><div class="heatmap-row"><div class="heatmap-row-label">111999888</div><div class="heatmap-cell" title="Customer 111999888 × Creator 112233: 13 files" style="background: rgba(245, 197, 66, 0.753); color: rgb(228, 231, 240); border-color: transparent;">13</div><div class="heatmap-cell" title="Customer 111999888 × Creator 123456: 20 files" style="background: rgba(245, 197, 66, 0.94); color: rgb(255, 255, 255); border-color: transparent;">20</div><div class="heatmap-cell" title="Customer 111999888 × Creator 334455: 14 files" style="background: rgba(245, 197, 66, 0.776); color: rgb(228, 231, 240); border-color: transparent;">14</div><div class="heatmap-cell" title="Customer 111999888 × Creator 445566: 16 files" style="background: rgba(245, 197, 66, 0.83); color: rgb(228, 231, 240); border-color: transparent;">16</div><div class="heatmap-cell" title="Customer 111999888 × Creator 667788: 22 files" style="background: rgba(245, 197, 66, 0.996); color: rgb(255, 255, 255); border-color: transparent;">22</div><div class="heatmap-cell" title="Customer 111999888 × Creator 789012: 21 files" style="background: rgba(245, 197, 66, 0.97); color: rgb(255, 255, 255); border-color: transparent;">21</div></div><div class="heatmap-row"><div class="heatmap-row-label">123456789</div><div class="heatmap-cell" title="Customer 123456789 × Creator 112233: 18 files" style="background: rgba(245, 197, 66, 0.886); color: rgb(228, 231, 240); border-color: transparent;">18</div><div class="heatmap-cell" title="Customer 123456789 × Creator 123456: 27 files" style="background: rgba(240, 79, 90, 0.867); color: rgb(255, 255, 255); border-color: transparent;">27</div><div class="heatmap-cell" title="Customer 123456789 × Creator 334455: 17 files" style="background: rgba(245, 197, 66, 0.86); color: rgb(228, 231, 240); border-color: transparent;">17</div><div class="heatmap-cell" title="Customer 123456789 × Creator 445566: 17 files" style="background: rgba(245, 197, 66, 0.86); color: rgb(228, 231, 240); border-color: transparent;">17</div><div class="heatmap-cell" title="Customer 123456789 × Creator 667788: 23 files" style="background: rgb(245, 197, 66); color: rgb(255, 255, 255); border-color: transparent;">23</div><div class="heatmap-cell" title="Customer 123456789 × Creator 789012: 19 files" style="background: rgba(245, 197, 66, 0.914); color: rgb(255, 255, 255); border-color: transparent;">19</div></div><div class="heatmap-row"><div class="heatmap-row-label">321654987</div><div class="heatmap-cell" title="Customer 321654987 × Creator 112233: 24 files" style="background: rgb(245, 197, 66); color: rgb(255, 255, 255); border-color: transparent;">24</div><div class="heatmap-cell" title="Customer 321654987 × Creator 123456: 33 files" style="background: rgba(240, 79, 90, 0.945); color: rgb(255, 255, 255); border-color: transparent;">33</div><div class="heatmap-cell" title="Customer 321654987 × Creator 334455: 20 files" style="background: rgba(245, 197, 66, 0.94); color: rgb(255, 255, 255); border-color: transparent;">20</div><div class="heatmap-cell" title="Customer 321654987 × Creator 445566: 12 files" style="background: rgba(79, 142, 245, 0.737); color: rgb(228, 231, 240); border-color: transparent;">12</div><div class="heatmap-cell" title="Customer 321654987 × Creator 667788: 37 files" style="background: rgb(240, 79, 90); color: rgb(255, 255, 255); border-color: transparent;">37</div><div class="heatmap-cell" title="Customer 321654987 × Creator 789012: 28 files" style="background: rgba(240, 79, 90, 0.88); color: rgb(255, 255, 255); border-color: transparent;">28</div></div><div class="heatmap-row"><div class="heatmap-row-label">444555666</div><div class="heatmap-cell" title="Customer 444555666 × Creator 112233: 22 files" style="background: rgba(245, 197, 66, 0.996); color: rgb(255, 255, 255); border-color: transparent;">22</div><div class="heatmap-cell" title="Customer 444555666 × Creator 123456: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 444555666 × Creator 334455: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 444555666 × Creator 445566: 20 files" style="background: rgba(245, 197, 66, 0.94); color: rgb(255, 255, 255); border-color: transparent;">20</div><div class="heatmap-cell" title="Customer 444555666 × Creator 667788: 19 files" style="background: rgba(245, 197, 66, 0.914); color: rgb(255, 255, 255); border-color: transparent;">19</div><div class="heatmap-cell" title="Customer 444555666 × Creator 789012: 29 files" style="background: rgba(240, 79, 90, 0.89); color: rgb(255, 255, 255); border-color: transparent;">29</div></div><div class="heatmap-row"><div class="heatmap-row-label">456123789</div><div class="heatmap-cell" title="Customer 456123789 × Creator 112233: 14 files" style="background: rgba(245, 197, 66, 0.776); color: rgb(228, 231, 240); border-color: transparent;">14</div><div class="heatmap-cell" title="Customer 456123789 × Creator 123456: 22 files" style="background: rgba(245, 197, 66, 0.996); color: rgb(255, 255, 255); border-color: transparent;">22</div><div class="heatmap-cell" title="Customer 456123789 × Creator 334455: 20 files" style="background: rgba(245, 197, 66, 0.94); color: rgb(255, 255, 255); border-color: transparent;">20</div><div class="heatmap-cell" title="Customer 456123789 × Creator 445566: 11 files" style="background: rgba(79, 142, 245, 0.694); color: rgb(228, 231, 240); border-color: transparent;">11</div><div class="heatmap-cell" title="Customer 456123789 × Creator 667788: 18 files" style="background: rgba(245, 197, 66, 0.886); color: rgb(228, 231, 240); border-color: transparent;">18</div><div class="heatmap-cell" title="Customer 456123789 × Creator 789012: 17 files" style="background: rgba(245, 197, 66, 0.86); color: rgb(228, 231, 240); border-color: transparent;">17</div></div><div class="heatmap-row"><div class="heatmap-row-label">654987321</div><div class="heatmap-cell" title="Customer 654987321 × Creator 112233: 23 files" style="background: rgb(245, 197, 66); color: rgb(255, 255, 255); border-color: transparent;">23</div><div class="heatmap-cell" title="Customer 654987321 × Creator 123456: 19 files" style="background: rgba(245, 197, 66, 0.914); color: rgb(255, 255, 255); border-color: transparent;">19</div><div class="heatmap-cell" title="Customer 654987321 × Creator 334455: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 654987321 × Creator 445566: 7 files" style="background: rgba(79, 142, 245, 0.533); color: rgb(228, 231, 240); border-color: transparent;">7</div><div class="heatmap-cell" title="Customer 654987321 × Creator 667788: 14 files" style="background: rgba(245, 197, 66, 0.776); color: rgb(228, 231, 240); border-color: transparent;">14</div><div class="heatmap-cell" title="Customer 654987321 × Creator 789012: 19 files" style="background: rgba(245, 197, 66, 0.914); color: rgb(255, 255, 255); border-color: transparent;">19</div></div><div class="heatmap-row"><div class="heatmap-row-label">789321654</div><div class="heatmap-cell" title="Customer 789321654 × Creator 112233: 27 files" style="background: rgba(240, 79, 90, 0.867); color: rgb(255, 255, 255); border-color: transparent;">27</div><div class="heatmap-cell" title="Customer 789321654 × Creator 123456: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 789321654 × Creator 334455: 16 files" style="background: rgba(245, 197, 66, 0.83); color: rgb(228, 231, 240); border-color: transparent;">16</div><div class="heatmap-cell" title="Customer 789321654 × Creator 445566: 18 files" style="background: rgba(245, 197, 66, 0.886); color: rgb(228, 231, 240); border-color: transparent;">18</div><div class="heatmap-cell" title="Customer 789321654 × Creator 667788: 24 files" style="background: rgb(245, 197, 66); color: rgb(255, 255, 255); border-color: transparent;">24</div><div class="heatmap-cell" title="Customer 789321654 × Creator 789012: 21 files" style="background: rgba(245, 197, 66, 0.97); color: rgb(255, 255, 255); border-color: transparent;">21</div></div><div class="heatmap-row"><div class="heatmap-row-label">987654321</div><div class="heatmap-cell" title="Customer 987654321 × Creator 112233: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 987654321 × Creator 123456: 26 files" style="background: rgba(240, 79, 90, 0.85); color: rgb(255, 255, 255); border-color: transparent;">26</div><div class="heatmap-cell" title="Customer 987654321 × Creator 334455: 17 files" style="background: rgba(245, 197, 66, 0.86); color: rgb(228, 231, 240); border-color: transparent;">17</div><div class="heatmap-cell" title="Customer 987654321 × Creator 445566: 12 files" style="background: rgba(79, 142, 245, 0.737); color: rgb(228, 231, 240); border-color: transparent;">12</div><div class="heatmap-cell" title="Customer 987654321 × Creator 667788: 27 files" style="background: rgba(240, 79, 90, 0.867); color: rgb(255, 255, 255); border-color: transparent;">27</div><div class="heatmap-cell" title="Customer 987654321 × Creator 789012: 27 files" style="background: rgba(240, 79, 90, 0.867); color: rgb(255, 255, 255); border-color: transparent;">27</div></div><div class="legend-row">
+  <span>Low</span>
+  <span class="legend-swatch" style="background:rgba(79,142,245,0.41216216216216217)"></span><span class="legend-swatch" style="background:rgba(79,142,245,0.6959459459459459)"></span><span class="legend-swatch" style="background:rgba(245,197,66,0.9135135135135135)"></span><span class="legend-swatch" style="background:rgba(240,79,90,0.8513513513513513)"></span><span class="legend-swatch" style="background:rgba(240,79,90,1)"></span>
+  <span>High (37 files)</span>
+</div></div>
+  </div>
+
+</div>
+
+<footer>File Metadata Dashboard · 1000 records · 2026-05-04</footer>
+
+<script>
+const D = {"total": 1000, "overdue_count": 313, "unique_customers": 8, "unique_creators": 6, "inbound": 802, "outbound": 198, "today_key": "2026-05", "timeline": [["2022-01", 17], ["2022-02", 28], ["2022-03", 23], ["2022-04", 25], ["2022-05", 20], ["2022-06", 18], ["2022-07", 31], ["2022-08", 20], ["2022-09", 19], ["2022-10", 21], ["2022-11", 15], ["2022-12", 14], ["2023-01", 27], ["2023-02", 12], ["2023-03", 16], ["2023-04", 22], ["2023-05", 15], ["2023-06", 18], ["2023-07", 24], ["2023-08", 18], ["2023-09", 10], ["2023-10", 23], ["2023-11", 19], ["2023-12", 19], ["2024-01", 18], ["2024-02", 16], ["2024-03", 16], ["2024-04", 19], ["2024-05", 16], ["2024-06", 17], ["2024-07", 19], ["2024-08", 18], ["2024-09", 18], ["2024-10", 15], ["2024-11", 22], ["2024-12", 25], ["2025-01", 18], ["2025-02", 24], ["2025-03", 20], ["2025-04", 20], ["2025-05", 21], ["2025-06", 26], ["2025-07", 14], ["2025-08", 20], ["2025-09", 17], ["2025-10", 23], ["2025-11", 19], ["2025-12", 18], ["2026-01", 15], ["2026-02", 13], ["2026-03", 20], ["2026-04", 17], ["2026-05", 2]], "creator_counts": [["445566", 113], ["334455", 156], ["112233", 167], ["789012", 181], ["667788", 184], ["123456", 199]], "customer_counts": [["456123789", 102], ["111999888", 106], ["654987321", 108], ["123456789", 121], ["789321654", 132], ["987654321", 135], ["444555666", 142], ["321654987", 154]], "disp_timeline": [["2022-07", 3], ["2022-08", 10], ["2022-09", 1], ["2022-10", 4], ["2022-11", 2], ["2022-12", 4], ["2023-01", 8], ["2023-02", 2], ["2023-03", 2], ["2023-04", 1], ["2023-05", 3], ["2023-06", 3], ["2023-07", 5], ["2023-08", 2], ["2023-09", 8], ["2023-10", 4], ["2023-11", 5], ["2023-12", 3], ["2024-01", 5], ["2024-02", 13], ["2024-03", 11], ["2024-04", 7], ["2024-05", 9], ["2024-06", 14], ["2024-07", 7], ["2024-08", 13], ["2024-09", 5], ["2024-10", 11], ["2024-11", 8], ["2024-12", 7], ["2025-01", 13], ["2025-02", 4], ["2025-03", 5], ["2025-04", 9], ["2025-05", 5], ["2025-06", 12], ["2025-07", 13], ["2025-08", 8], ["2025-09", 7], ["2025-10", 8], ["2025-11", 10], ["2025-12", 6], ["2026-01", 7], ["2026-02", 8], ["2026-03", 8], ["2026-04", 10], ["2026-05", 8], ["2026-06", 9], ["2026-07", 8], ["2026-08", 5], ["2026-09", 8], ["2026-10", 6], ["2026-11", 5], ["2026-12", 7], ["2027-01", 3], ["2027-02", 5], ["2027-03", 5], ["2027-04", 6], ["2027-05", 5], ["2027-06", 6], ["2027-07", 2], ["2027-08", 3], ["2027-09", 2], ["2027-10", 7], ["2027-12", 3], ["2028-01", 1], ["2028-02", 4], ["2028-03", 7], ["2028-04", 4], ["2029-01", 6], ["2029-02", 8], ["2029-03", 9], ["2029-04", 10], ["2029-05", 6], ["2029-06", 5], ["2029-07", 7], ["2029-08", 8], ["2029-09", 9], ["2029-10", 9], ["2029-11", 4], ["2029-12", 2], ["2030-01", 7], ["2030-02", 4], ["2030-03", 2], ["2030-04", 4], ["2030-05", 4], ["2030-06", 4], ["2030-07", 8], ["2030-08", 4], ["2030-09", 3], ["2030-10", 6], ["2030-11", 3], ["2030-12", 1], ["2031-01", 6], ["2031-02", 1], ["2031-03", 3], ["2031-04", 4], ["2031-05", 4], ["2031-06", 7], ["2031-07", 2], ["2031-08", 6], ["2031-09", 7], ["2031-10", 8], ["2031-11", 5], ["2031-12", 4], ["2032-01", 7], ["2032-02", 6], ["2032-03", 3], ["2032-04", 7], ["2032-05", 7], ["2032-06", 10], ["2032-07", 5], ["2032-08", 4], ["2032-09", 7], ["2032-10", 7], ["2032-11", 7], ["2032-12", 4], ["2033-01", 6], ["2033-02", 2], ["2033-03", 2], ["2033-04", 4], ["2033-05", 1], ["2067-01", 5], ["2067-02", 4], ["2067-03", 8], ["2067-04", 10], ["2067-05", 7], ["2067-06", 4], ["2067-07", 11], ["2067-08", 3], ["2067-09", 6], ["2067-10", 4], ["2067-11", 3], ["2067-12", 4], ["2068-01", 9], ["2068-02", 6], ["2068-03", 3], ["2068-04", 8], ["2068-05", 5], ["2068-06", 5], ["2068-07", 7], ["2068-08", 6], ["2068-09", 1], ["2068-10", 4], ["2068-11", 7], ["2068-12", 6], ["2069-01", 6], ["2069-02", 6], ["2069-03", 5], ["2069-04", 6], ["2069-05", 6], ["2069-06", 4], ["2069-07", 4], ["2069-08", 5], ["2069-09", 5], ["2069-10", 2], ["2069-11", 9], ["2069-12", 8], ["2070-01", 2], ["2070-02", 6], ["2070-03", 5], ["2070-04", 6], ["2070-05", 4], ["2070-06", 7], ["2070-07", 4], ["2070-08", 8], ["2070-09", 5], ["2070-10", 4], ["2070-11", 7], ["2070-12", 6], ["2071-01", 6], ["2071-02", 5], ["2071-03", 7], ["2071-04", 5]], "overdue": [{"customer_number": "789321654", "file_name": "draft summary.pdf", "file_category": "letter", "file_created_at": "2022-01-03", "disposal_time": "6 months", "due_date": "2022-07-03", "overdue": "3y 10m", "days": 1400}, {"customer_number": "987654321", "file_name": "draft declaration.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-01-04", "disposal_time": "6 months", "due_date": "2022-07-04", "overdue": "3y 10m", "days": 1399}, {"customer_number": "444555666", "file_name": "original proposal.docx", "file_category": "receipt", "file_created_at": "2022-01-22", "disposal_time": "6 months", "due_date": "2022-07-22", "overdue": "3y 9m", "days": 1381}, {"customer_number": "123456789", "file_name": "verified response.jpeg", "file_category": "photo", "file_created_at": "2022-02-01", "disposal_time": "6 months", "due_date": "2022-08-01", "overdue": "3y 9m", "days": 1371}, {"customer_number": "321654987", "file_name": "external memo.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-02-06", "disposal_time": "6 months", "due_date": "2022-08-06", "overdue": "3y 9m", "days": 1366}, {"customer_number": "111999888", "file_name": "internal catalogue.docx", "file_category": "letter", "file_created_at": "2022-02-08", "disposal_time": "6 months", "due_date": "2022-08-08", "overdue": "3y 8m", "days": 1364}, {"customer_number": "654987321", "file_name": "monthly certificate.jpeg", "file_category": "receipt", "file_created_at": "2022-02-09", "disposal_time": "6 months", "due_date": "2022-08-09", "overdue": "3y 8m", "days": 1363}, {"customer_number": "789321654", "file_name": "internal log.docx", "file_category": "letter", "file_created_at": "2022-02-11", "disposal_time": "6 months", "due_date": "2022-08-11", "overdue": "3y 8m", "days": 1361}, {"customer_number": "321654987", "file_name": "interim invoice.pdf", "file_category": "letter", "file_created_at": "2022-02-15", "disposal_time": "6 months", "due_date": "2022-08-15", "overdue": "3y 8m", "days": 1357}, {"customer_number": "987654321", "file_name": "general invoice.pdf", "file_category": "letter", "file_created_at": "2022-02-22", "disposal_time": "6 months", "due_date": "2022-08-22", "overdue": "3y 8m", "days": 1350}, {"customer_number": "321654987", "file_name": "draft declaration.pdf", "file_category": "receipt", "file_created_at": "2022-02-22", "disposal_time": "6 months", "due_date": "2022-08-22", "overdue": "3y 8m", "days": 1350}, {"customer_number": "321654987", "file_name": "quarterly report.docx", "file_category": "letter", "file_created_at": "2022-02-25", "disposal_time": "6 months", "due_date": "2022-08-25", "overdue": "3y 8m", "days": 1347}, {"customer_number": "987654321", "file_name": "official review.jpeg", "file_category": "photo", "file_created_at": "2022-02-27", "disposal_time": "6 months", "due_date": "2022-08-27", "overdue": "3y 8m", "days": 1345}, {"customer_number": "789321654", "file_name": "revised schedule.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-03-19", "disposal_time": "6 months", "due_date": "2022-09-19", "overdue": "3y 7m", "days": 1322}, {"customer_number": "444555666", "file_name": "official confirmation.jpeg", "file_category": "photo", "file_created_at": "2022-04-02", "disposal_time": "6 months", "due_date": "2022-10-02", "overdue": "3y 7m", "days": 1309}, {"customer_number": "456123789", "file_name": "general statement.pdf", "file_category": "receipt", "file_created_at": "2022-04-07", "disposal_time": "6 months", "due_date": "2022-10-07", "overdue": "3y 6m", "days": 1304}, {"customer_number": "123456789", "file_name": "annual audit.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-04-18", "disposal_time": "6 months", "due_date": "2022-10-18", "overdue": "3y 6m", "days": 1293}, {"customer_number": "987654321", "file_name": "external catalogue.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-04-28", "disposal_time": "6 months", "due_date": "2022-10-28", "overdue": "3y 6m", "days": 1283}, {"customer_number": "444555666", "file_name": "approved document.jpeg", "file_category": "photo", "file_created_at": "2022-05-16", "disposal_time": "6 months", "due_date": "2022-11-16", "overdue": "3y 5m", "days": 1264}, {"customer_number": "111999888", "file_name": "revised schedule.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-05-20", "disposal_time": "6 months", "due_date": "2022-11-20", "overdue": "3y 5m", "days": 1260}, {"customer_number": "111999888", "file_name": "approved plan.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-06-03", "disposal_time": "6 months", "due_date": "2022-12-03", "overdue": "3y 5m", "days": 1247}, {"customer_number": "321654987", "file_name": "secondary statement.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-06-08", "disposal_time": "6 months", "due_date": "2022-12-08", "overdue": "3y 4m", "days": 1242}, {"customer_number": "444555666", "file_name": "annual schedule.pdf", "file_category": "receipt", "file_created_at": "2022-06-10", "disposal_time": "6 months", "due_date": "2022-12-10", "overdue": "3y 4m", "days": 1240}, {"customer_number": "456123789", "file_name": "annual log.docx", "file_category": "receipt", "file_created_at": "2022-06-12", "disposal_time": "6 months", "due_date": "2022-12-12", "overdue": "3y 4m", "days": 1238}, {"customer_number": "444555666", "file_name": "revised notice.pdf", "file_category": "letter", "file_created_at": "2022-07-03", "disposal_time": "6 months", "due_date": "2023-01-03", "overdue": "3y 4m", "days": 1216}, {"customer_number": "987654321", "file_name": "detailed memo.pdf", "file_category": "letter", "file_created_at": "2022-07-07", "disposal_time": "6 months", "due_date": "2023-01-07", "overdue": "3y 3m", "days": 1212}, {"customer_number": "987654321", "file_name": "summary record.docx", "file_category": "letter", "file_created_at": "2022-07-12", "disposal_time": "6 months", "due_date": "2023-01-12", "overdue": "3y 3m", "days": 1207}, {"customer_number": "111999888", "file_name": "primary contract.pdf", "file_category": "letter", "file_created_at": "2022-07-19", "disposal_time": "6 months", "due_date": "2023-01-19", "overdue": "3y 3m", "days": 1200}, {"customer_number": "123456789", "file_name": "annual claim.jpeg", "file_category": "photo", "file_created_at": "2022-07-26", "disposal_time": "6 months", "due_date": "2023-01-26", "overdue": "3y 3m", "days": 1193}, {"customer_number": "444555666", "file_name": "summary register.docx", "file_category": "letter", "file_created_at": "2022-07-28", "disposal_time": "6 months", "due_date": "2023-01-28", "overdue": "3y 3m", "days": 1191}, {"customer_number": "987654321", "file_name": "revised schedule.docx", "file_category": "letter", "file_created_at": "2022-07-30", "disposal_time": "6 months", "due_date": "2023-01-30", "overdue": "3y 3m", "days": 1189}, {"customer_number": "111999888", "file_name": "signed document.pdf", "file_category": "receipt", "file_created_at": "2022-07-31", "disposal_time": "6 months", "due_date": "2023-01-31", "overdue": "3y 3m", "days": 1188}, {"customer_number": "987654321", "file_name": "detailed register.jpeg", "file_category": "photo", "file_created_at": "2022-08-09", "disposal_time": "6 months", "due_date": "2023-02-09", "overdue": "3y 2m", "days": 1179}, {"customer_number": "654987321", "file_name": "pending plan.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-08-17", "disposal_time": "6 months", "due_date": "2023-02-17", "overdue": "3y 2m", "days": 1171}, {"customer_number": "321654987", "file_name": "general plan.jpeg", "file_category": "receipt", "file_created_at": "2022-09-09", "disposal_time": "6 months", "due_date": "2023-03-09", "overdue": "3y 1m", "days": 1151}, {"customer_number": "456123789", "file_name": "annual response.docx", "file_category": "receipt", "file_created_at": "2022-09-12", "disposal_time": "6 months", "due_date": "2023-03-12", "overdue": "3y 1m", "days": 1148}, {"customer_number": "456123789", "file_name": "signed statement.pdf", "file_category": "letter", "file_created_at": "2022-10-16", "disposal_time": "6 months", "due_date": "2023-04-16", "overdue": "3y 0m", "days": 1113}, {"customer_number": "789321654", "file_name": "internal form.docx", "file_category": "letter", "file_created_at": "2022-11-01", "disposal_time": "6 months", "due_date": "2023-05-01", "overdue": "3y 0m", "days": 1098}, {"customer_number": "789321654", "file_name": "official audit.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-11-25", "disposal_time": "6 months", "due_date": "2023-05-25", "overdue": "2y 11m", "days": 1074}, {"customer_number": "111999888", "file_name": "general document.pdf", "file_category": "letter", "file_created_at": "2022-11-28", "disposal_time": "6 months", "due_date": "2023-05-28", "overdue": "2y 11m", "days": 1071}, {"customer_number": "789321654", "file_name": "interim declaration.docx", "file_category": "letter", "file_created_at": "2022-12-21", "disposal_time": "6 months", "due_date": "2023-06-21", "overdue": "2y 10m", "days": 1047}, {"customer_number": "321654987", "file_name": "verified request.jpeg", "file_category": "photo", "file_created_at": "2022-12-29", "disposal_time": "6 months", "due_date": "2023-06-29", "overdue": "2y 10m", "days": 1039}, {"customer_number": "456123789", "file_name": "interim claim.jpeg", "file_category": "photo", "file_created_at": "2022-12-29", "disposal_time": "6 months", "due_date": "2023-06-29", "overdue": "2y 10m", "days": 1039}, {"customer_number": "111999888", "file_name": "final report.pdf", "file_category": "letter", "file_created_at": "2023-01-05", "disposal_time": "6 months", "due_date": "2023-07-05", "overdue": "2y 10m", "days": 1033}, {"customer_number": "111999888", "file_name": "interim receipt.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-01-18", "disposal_time": "6 months", "due_date": "2023-07-18", "overdue": "2y 9m", "days": 1020}, {"customer_number": "987654321", "file_name": "final certificate.pdf", "file_category": "letter", "file_created_at": "2023-01-21", "disposal_time": "6 months", "due_date": "2023-07-21", "overdue": "2y 9m", "days": 1017}, {"customer_number": "123456789", "file_name": "official log.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-01-21", "disposal_time": "6 months", "due_date": "2023-07-21", "overdue": "2y 9m", "days": 1017}, {"customer_number": "111999888", "file_name": "summary inspection.docx", "file_category": "letter", "file_created_at": "2023-01-24", "disposal_time": "6 months", "due_date": "2023-07-24", "overdue": "2y 9m", "days": 1014}, {"customer_number": "321654987", "file_name": "monthly declaration.jpeg", "file_category": "receipt", "file_created_at": "2023-02-07", "disposal_time": "6 months", "due_date": "2023-08-07", "overdue": "2y 9m", "days": 1000}, {"customer_number": "111999888", "file_name": "approved declaration.pdf", "file_category": "receipt", "file_created_at": "2023-02-26", "disposal_time": "6 months", "due_date": "2023-08-26", "overdue": "2y 8m", "days": 981}, {"customer_number": "456123789", "file_name": "quarterly certificate.jpeg", "file_category": "photo", "file_created_at": "2023-03-02", "disposal_time": "6 months", "due_date": "2023-09-02", "overdue": "2y 8m", "days": 974}, {"customer_number": "654987321", "file_name": "monthly confirmation.pdf", "file_category": "letter", "file_created_at": "2023-03-06", "disposal_time": "6 months", "due_date": "2023-09-06", "overdue": "2y 8m", "days": 970}, {"customer_number": "654987321", "file_name": "internal guide.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-03-08", "disposal_time": "6 months", "due_date": "2023-09-08", "overdue": "2y 7m", "days": 968}, {"customer_number": "987654321", "file_name": "external response.jpeg", "file_category": "photo", "file_created_at": "2023-03-15", "disposal_time": "6 months", "due_date": "2023-09-15", "overdue": "2y 7m", "days": 961}, {"customer_number": "123456789", "file_name": "official confirmation.docx", "file_category": "receipt", "file_created_at": "2023-03-17", "disposal_time": "6 months", "due_date": "2023-09-17", "overdue": "2y 7m", "days": 959}, {"customer_number": "987654321", "file_name": "pending confirmation.docx", "file_category": "receipt", "file_created_at": "2023-03-17", "disposal_time": "6 months", "due_date": "2023-09-17", "overdue": "2y 7m", "days": 959}, {"customer_number": "444555666", "file_name": "official catalogue.docx", "file_category": "receipt", "file_created_at": "2023-03-20", "disposal_time": "6 months", "due_date": "2023-09-20", "overdue": "2y 7m", "days": 956}, {"customer_number": "789321654", "file_name": "primary document.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-03-23", "disposal_time": "6 months", "due_date": "2023-09-23", "overdue": "2y 7m", "days": 953}, {"customer_number": "111999888", "file_name": "standard request.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-04-05", "disposal_time": "6 months", "due_date": "2023-10-05", "overdue": "2y 7m", "days": 941}, {"customer_number": "444555666", "file_name": "verified record.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-04-13", "disposal_time": "6 months", "due_date": "2023-10-13", "overdue": "2y 6m", "days": 933}, {"customer_number": "789321654", "file_name": "supplementary notice.jpeg", "file_category": "photo", "file_created_at": "2023-04-19", "disposal_time": "6 months", "due_date": "2023-10-19", "overdue": "2y 6m", "days": 927}, {"customer_number": "987654321", "file_name": "general log.jpeg", "file_category": "receipt", "file_created_at": "2023-04-30", "disposal_time": "6 months", "due_date": "2023-10-30", "overdue": "2y 6m", "days": 916}, {"customer_number": "111999888", "file_name": "summary receipt.docx", "file_category": "letter", "file_created_at": "2023-05-03", "disposal_time": "6 months", "due_date": "2023-11-03", "overdue": "2y 6m", "days": 912}, {"customer_number": "654987321", "file_name": "summary policy.docx", "file_category": "letter", "file_created_at": "2023-05-11", "disposal_time": "6 months", "due_date": "2023-11-11", "overdue": "2y 5m", "days": 904}, {"customer_number": "987654321", "file_name": "summary statement.docx", "file_category": "letter", "file_created_at": "2023-05-14", "disposal_time": "6 months", "due_date": "2023-11-14", "overdue": "2y 5m", "days": 901}, {"customer_number": "123456789", "file_name": "updated request.docx", "file_category": "receipt", "file_created_at": "2023-05-18", "disposal_time": "6 months", "due_date": "2023-11-18", "overdue": "2y 5m", "days": 897}, {"customer_number": "789321654", "file_name": "supplementary claim.pdf", "file_category": "letter", "file_created_at": "2023-05-21", "disposal_time": "6 months", "due_date": "2023-11-21", "overdue": "2y 5m", "days": 894}, {"customer_number": "111999888", "file_name": "revised response.pdf", "file_category": "letter", "file_created_at": "2023-06-03", "disposal_time": "6 months", "due_date": "2023-12-03", "overdue": "2y 5m", "days": 882}, {"customer_number": "456123789", "file_name": "annual receipt.pdf", "file_category": "receipt", "file_created_at": "2023-06-07", "disposal_time": "6 months", "due_date": "2023-12-07", "overdue": "2y 4m", "days": 878}, {"customer_number": "123456789", "file_name": "signed record.jpeg", "file_category": "photo", "file_created_at": "2023-06-08", "disposal_time": "6 months", "due_date": "2023-12-08", "overdue": "2y 4m", "days": 877}, {"customer_number": "321654987", "file_name": "monthly log.pdf", "file_category": "receipt", "file_created_at": "2023-07-10", "disposal_time": "6 months", "due_date": "2024-01-10", "overdue": "2y 3m", "days": 844}, {"customer_number": "321654987", "file_name": "general review.jpeg", "file_category": "photo", "file_created_at": "2022-01-19", "disposal_time": "2 years", "due_date": "2024-01-19", "overdue": "2y 3m", "days": 835}, {"customer_number": "456123789", "file_name": "verified contract.pdf", "file_category": "letter", "file_created_at": "2022-01-22", "disposal_time": "2 years", "due_date": "2024-01-22", "overdue": "2y 3m", "days": 832}, {"customer_number": "654987321", "file_name": "summary agreement.docx", "file_category": "receipt", "file_created_at": "2022-01-27", "disposal_time": "2 years", "due_date": "2024-01-27", "overdue": "2y 3m", "days": 827}, {"customer_number": "123456789", "file_name": "original form.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-07-28", "disposal_time": "6 months", "due_date": "2024-01-28", "overdue": "2y 3m", "days": 826}, {"customer_number": "789321654", "file_name": "pending letter.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-08-04", "disposal_time": "6 months", "due_date": "2024-02-04", "overdue": "2y 2m", "days": 819}, {"customer_number": "456123789", "file_name": "official invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-08-08", "disposal_time": "6 months", "due_date": "2024-02-08", "overdue": "2y 2m", "days": 815}, {"customer_number": "321654987", "file_name": "standard form.jpeg", "file_category": "photo", "file_created_at": "2022-02-11", "disposal_time": "2 years", "due_date": "2024-02-11", "overdue": "2y 2m", "days": 812}, {"customer_number": "456123789", "file_name": "detailed notice.jpeg", "file_category": "photo", "file_created_at": "2023-08-11", "disposal_time": "6 months", "due_date": "2024-02-11", "overdue": "2y 2m", "days": 812}, {"customer_number": "321654987", "file_name": "special claim.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-02-15", "disposal_time": "2 years", "due_date": "2024-02-15", "overdue": "2y 2m", "days": 808}, {"customer_number": "111999888", "file_name": "quarterly receipt.jpeg", "file_category": "receipt", "file_created_at": "2023-08-15", "disposal_time": "6 months", "due_date": "2024-02-15", "overdue": "2y 2m", "days": 808}, {"customer_number": "111999888", "file_name": "original summary.jpeg", "file_category": "photo", "file_created_at": "2022-02-15", "disposal_time": "2 years", "due_date": "2024-02-15", "overdue": "2y 2m", "days": 808}, {"customer_number": "444555666", "file_name": "approved report.pdf", "file_category": "letter", "file_created_at": "2022-02-19", "disposal_time": "2 years", "due_date": "2024-02-19", "overdue": "2y 2m", "days": 804}, {"customer_number": "654987321", "file_name": "standard policy.docx", "file_category": "receipt", "file_created_at": "2023-08-21", "disposal_time": "6 months", "due_date": "2024-02-21", "overdue": "2y 2m", "days": 802}, {"customer_number": "321654987", "file_name": "pending brief.pdf", "file_category": "receipt", "file_created_at": "2022-02-22", "disposal_time": "2 years", "due_date": "2024-02-22", "overdue": "2y 2m", "days": 801}, {"customer_number": "654987321", "file_name": "special proposal.pdf", "file_category": "letter", "file_created_at": "2022-02-26", "disposal_time": "2 years", "due_date": "2024-02-26", "overdue": "2y 2m", "days": 797}, {"customer_number": "444555666", "file_name": "external document.pdf", "file_category": "receipt", "file_created_at": "2023-08-31", "disposal_time": "6 months", "due_date": "2024-02-29", "overdue": "2y 2m", "days": 794}, {"customer_number": "444555666", "file_name": "standard review.pdf", "file_category": "receipt", "file_created_at": "2023-08-29", "disposal_time": "6 months", "due_date": "2024-02-29", "overdue": "2y 2m", "days": 794}, {"customer_number": "321654987", "file_name": "original inspection.pdf", "file_category": "letter", "file_created_at": "2022-03-08", "disposal_time": "2 years", "due_date": "2024-03-08", "overdue": "2y 1m", "days": 786}, {"customer_number": "789321654", "file_name": "internal catalogue.jpeg", "file_category": "receipt", "file_created_at": "2022-03-17", "disposal_time": "2 years", "due_date": "2024-03-17", "overdue": "2y 1m", "days": 777}, {"customer_number": "444555666", "file_name": "standard application.jpeg", "file_category": "receipt", "file_created_at": "2023-09-18", "disposal_time": "6 months", "due_date": "2024-03-18", "overdue": "2y 1m", "days": 776}, {"customer_number": "789321654", "file_name": "approved policy.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-03-21", "disposal_time": "2 years", "due_date": "2024-03-21", "overdue": "2y 1m", "days": 773}, {"customer_number": "654987321", "file_name": "updated policy.pdf", "file_category": "letter", "file_created_at": "2023-09-22", "disposal_time": "6 months", "due_date": "2024-03-22", "overdue": "2y 1m", "days": 772}, {"customer_number": "654987321", "file_name": "official assessment.docx", "file_category": "receipt", "file_created_at": "2023-09-23", "disposal_time": "6 months", "due_date": "2024-03-23", "overdue": "2y 1m", "days": 771}, {"customer_number": "456123789", "file_name": "quarterly guide.pdf", "file_category": "letter", "file_created_at": "2023-09-25", "disposal_time": "6 months", "due_date": "2024-03-25", "overdue": "2y 1m", "days": 769}, {"customer_number": "654987321", "file_name": "supplementary notice.pdf", "file_category": "receipt", "file_created_at": "2023-09-26", "disposal_time": "6 months", "due_date": "2024-03-26", "overdue": "2y 1m", "days": 768}, {"customer_number": "654987321", "file_name": "annual memo.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-03-28", "disposal_time": "2 years", "due_date": "2024-03-28", "overdue": "2y 1m", "days": 766}, {"customer_number": "987654321", "file_name": "archived record.jpeg", "file_category": "photo", "file_created_at": "2023-09-30", "disposal_time": "6 months", "due_date": "2024-03-30", "overdue": "2y 1m", "days": 764}, {"customer_number": "789321654", "file_name": "revised agreement.jpeg", "file_category": "receipt", "file_created_at": "2022-03-31", "disposal_time": "2 years", "due_date": "2024-03-31", "overdue": "2y 1m", "days": 763}, {"customer_number": "321654987", "file_name": "quarterly guide.jpeg", "file_category": "receipt", "file_created_at": "2022-04-03", "disposal_time": "2 years", "due_date": "2024-04-03", "overdue": "2y 1m", "days": 760}, {"customer_number": "654987321", "file_name": "general audit.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-10-07", "disposal_time": "6 months", "due_date": "2024-04-07", "overdue": "2y 0m", "days": 756}, {"customer_number": "654987321", "file_name": "standard review.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-10-07", "disposal_time": "6 months", "due_date": "2024-04-07", "overdue": "2y 0m", "days": 756}, {"customer_number": "123456789", "file_name": "original agreement.jpeg", "file_category": "photo", "file_created_at": "2023-10-07", "disposal_time": "6 months", "due_date": "2024-04-07", "overdue": "2y 0m", "days": 756}, {"customer_number": "456123789", "file_name": "original statement.pdf", "file_category": "receipt", "file_created_at": "2023-10-18", "disposal_time": "6 months", "due_date": "2024-04-18", "overdue": "2y 0m", "days": 745}, {"customer_number": "321654987", "file_name": "quarterly certificate.jpeg", "file_category": "photo", "file_created_at": "2023-10-27", "disposal_time": "6 months", "due_date": "2024-04-27", "overdue": "2y 0m", "days": 736}, {"customer_number": "321654987", "file_name": "internal response.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-10-29", "disposal_time": "6 months", "due_date": "2024-04-29", "overdue": "2y 0m", "days": 734}, {"customer_number": "321654987", "file_name": "general policy.docx", "file_category": "letter", "file_created_at": "2023-11-02", "disposal_time": "6 months", "due_date": "2024-05-02", "overdue": "2y 0m", "days": 731}, {"customer_number": "321654987", "file_name": "standard certificate.jpeg", "file_category": "photo", "file_created_at": "2023-11-04", "disposal_time": "6 months", "due_date": "2024-05-04", "overdue": "1y 12m", "days": 729}, {"customer_number": "789321654", "file_name": "original schedule.pdf", "file_category": "letter", "file_created_at": "2022-05-06", "disposal_time": "2 years", "due_date": "2024-05-06", "overdue": "1y 12m", "days": 727}, {"customer_number": "456123789", "file_name": "annual assessment.jpeg", "file_category": "photo", "file_created_at": "2022-05-08", "disposal_time": "2 years", "due_date": "2024-05-08", "overdue": "1y 12m", "days": 725}, {"customer_number": "789321654", "file_name": "updated submission.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-05-10", "disposal_time": "2 years", "due_date": "2024-05-10", "overdue": "1y 11m", "days": 723}, {"customer_number": "321654987", "file_name": "interim invoice.pdf", "file_category": "letter", "file_created_at": "2022-05-27", "disposal_time": "2 years", "due_date": "2024-05-27", "overdue": "1y 11m", "days": 706}, {"customer_number": "321654987", "file_name": "quarterly declaration.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-11-28", "disposal_time": "6 months", "due_date": "2024-05-28", "overdue": "1y 11m", "days": 705}, {"customer_number": "987654321", "file_name": "final catalogue.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-11-30", "disposal_time": "6 months", "due_date": "2024-05-30", "overdue": "1y 11m", "days": 703}, {"customer_number": "123456789", "file_name": "draft statement.pdf", "file_category": "letter", "file_created_at": "2022-05-31", "disposal_time": "2 years", "due_date": "2024-05-31", "overdue": "1y 11m", "days": 702}, {"customer_number": "444555666", "file_name": "signed audit.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-06-05", "disposal_time": "2 years", "due_date": "2024-06-05", "overdue": "1y 11m", "days": 697}, {"customer_number": "456123789", "file_name": "updated request.jpeg", "file_category": "photo", "file_created_at": "2023-12-05", "disposal_time": "6 months", "due_date": "2024-06-05", "overdue": "1y 11m", "days": 697}, {"customer_number": "111999888", "file_name": "primary confirmation.pdf", "file_category": "receipt", "file_created_at": "2023-12-06", "disposal_time": "6 months", "due_date": "2024-06-06", "overdue": "1y 11m", "days": 696}, {"customer_number": "444555666", "file_name": "detailed application.docx", "file_category": "receipt", "file_created_at": "2023-12-07", "disposal_time": "6 months", "due_date": "2024-06-07", "overdue": "1y 11m", "days": 695}, {"customer_number": "444555666", "file_name": "primary brief.pdf", "file_category": "letter", "file_created_at": "2022-06-09", "disposal_time": "2 years", "due_date": "2024-06-09", "overdue": "1y 10m", "days": 693}, {"customer_number": "654987321", "file_name": "pending receipt.docx", "file_category": "receipt", "file_created_at": "2023-12-10", "disposal_time": "6 months", "due_date": "2024-06-10", "overdue": "1y 10m", "days": 692}, {"customer_number": "654987321", "file_name": "original application.jpeg", "file_category": "photo", "file_created_at": "2023-12-16", "disposal_time": "6 months", "due_date": "2024-06-16", "overdue": "1y 10m", "days": 686}, {"customer_number": "321654987", "file_name": "quarterly plan.jpeg", "file_category": "photo", "file_created_at": "2022-06-17", "disposal_time": "2 years", "due_date": "2024-06-17", "overdue": "1y 10m", "days": 685}, {"customer_number": "444555666", "file_name": "primary response.docx", "file_category": "letter", "file_created_at": "2023-12-18", "disposal_time": "6 months", "due_date": "2024-06-18", "overdue": "1y 10m", "days": 684}, {"customer_number": "987654321", "file_name": "detailed brief.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-12-20", "disposal_time": "6 months", "due_date": "2024-06-20", "overdue": "1y 10m", "days": 682}, {"customer_number": "444555666", "file_name": "verified assessment.pdf", "file_category": "receipt", "file_created_at": "2022-06-20", "disposal_time": "2 years", "due_date": "2024-06-20", "overdue": "1y 10m", "days": 682}, {"customer_number": "987654321", "file_name": "draft guide.jpeg", "file_category": "receipt", "file_created_at": "2023-12-24", "disposal_time": "6 months", "due_date": "2024-06-24", "overdue": "1y 10m", "days": 678}, {"customer_number": "111999888", "file_name": "external receipt.jpeg", "file_category": "photo", "file_created_at": "2023-12-25", "disposal_time": "6 months", "due_date": "2024-06-25", "overdue": "1y 10m", "days": 677}, {"customer_number": "654987321", "file_name": "detailed letter.pdf", "file_category": "receipt", "file_created_at": "2022-06-26", "disposal_time": "2 years", "due_date": "2024-06-26", "overdue": "1y 10m", "days": 676}, {"customer_number": "111999888", "file_name": "standard document.jpeg", "file_category": "receipt", "file_created_at": "2022-07-06", "disposal_time": "2 years", "due_date": "2024-07-06", "overdue": "1y 10m", "days": 666}, {"customer_number": "456123789", "file_name": "general document.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-07-06", "disposal_time": "2 years", "due_date": "2024-07-06", "overdue": "1y 10m", "days": 666}, {"customer_number": "987654321", "file_name": "general schedule.pdf", "file_category": "letter", "file_created_at": "2022-07-17", "disposal_time": "2 years", "due_date": "2024-07-17", "overdue": "1y 9m", "days": 655}, {"customer_number": "987654321", "file_name": "internal document.docx", "file_category": "letter", "file_created_at": "2024-01-21", "disposal_time": "6 months", "due_date": "2024-07-21", "overdue": "1y 9m", "days": 651}, {"customer_number": "444555666", "file_name": "annual catalogue.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-07-25", "disposal_time": "2 years", "due_date": "2024-07-25", "overdue": "1y 9m", "days": 647}, {"customer_number": "789321654", "file_name": "approved inspection.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-01-25", "disposal_time": "6 months", "due_date": "2024-07-25", "overdue": "1y 9m", "days": 647}, {"customer_number": "654987321", "file_name": "official claim.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-07-29", "disposal_time": "2 years", "due_date": "2024-07-29", "overdue": "1y 9m", "days": 643}, {"customer_number": "123456789", "file_name": "general confirmation.jpeg", "file_category": "photo", "file_created_at": "2024-02-03", "disposal_time": "6 months", "due_date": "2024-08-03", "overdue": "1y 9m", "days": 638}, {"customer_number": "123456789", "file_name": "supplementary proposal.pdf", "file_category": "receipt", "file_created_at": "2022-08-09", "disposal_time": "2 years", "due_date": "2024-08-09", "overdue": "1y 8m", "days": 632}, {"customer_number": "444555666", "file_name": "interim invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-02-10", "disposal_time": "6 months", "due_date": "2024-08-10", "overdue": "1y 8m", "days": 631}, {"customer_number": "111999888", "file_name": "archived certificate.docx", "file_category": "receipt", "file_created_at": "2024-02-12", "disposal_time": "6 months", "due_date": "2024-08-12", "overdue": "1y 8m", "days": 629}, {"customer_number": "123456789", "file_name": "standard policy.docx", "file_category": "letter", "file_created_at": "2022-08-14", "disposal_time": "2 years", "due_date": "2024-08-14", "overdue": "1y 8m", "days": 627}, {"customer_number": "789321654", "file_name": "secondary schedule.jpeg", "file_category": "receipt", "file_created_at": "2024-02-15", "disposal_time": "6 months", "due_date": "2024-08-15", "overdue": "1y 8m", "days": 626}, {"customer_number": "789321654", "file_name": "final claim.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-02-16", "disposal_time": "6 months", "due_date": "2024-08-16", "overdue": "1y 8m", "days": 625}, {"customer_number": "789321654", "file_name": "standard proposal.pdf", "file_category": "receipt", "file_created_at": "2022-08-23", "disposal_time": "2 years", "due_date": "2024-08-23", "overdue": "1y 8m", "days": 618}, {"customer_number": "654987321", "file_name": "special inspection.jpeg", "file_category": "photo", "file_created_at": "2022-08-23", "disposal_time": "2 years", "due_date": "2024-08-23", "overdue": "1y 8m", "days": 618}, {"customer_number": "321654987", "file_name": "primary notice.docx", "file_category": "letter", "file_created_at": "2022-08-24", "disposal_time": "2 years", "due_date": "2024-08-24", "overdue": "1y 8m", "days": 617}, {"customer_number": "789321654", "file_name": "internal agreement.pdf", "file_category": "letter", "file_created_at": "2022-08-25", "disposal_time": "2 years", "due_date": "2024-08-25", "overdue": "1y 8m", "days": 616}, {"customer_number": "456123789", "file_name": "quarterly assessment.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-08-28", "disposal_time": "2 years", "due_date": "2024-08-28", "overdue": "1y 8m", "days": 613}, {"customer_number": "456123789", "file_name": "official confirmation.jpeg", "file_category": "photo", "file_created_at": "2024-02-28", "disposal_time": "6 months", "due_date": "2024-08-28", "overdue": "1y 8m", "days": 613}, {"customer_number": "654987321", "file_name": "primary claim.pdf", "file_category": "letter", "file_created_at": "2024-03-06", "disposal_time": "6 months", "due_date": "2024-09-06", "overdue": "1y 7m", "days": 604}, {"customer_number": "789321654", "file_name": "special review.docx", "file_category": "letter", "file_created_at": "2024-03-10", "disposal_time": "6 months", "due_date": "2024-09-10", "overdue": "1y 7m", "days": 600}, {"customer_number": "987654321", "file_name": "secondary statement.jpeg", "file_category": "photo", "file_created_at": "2022-09-20", "disposal_time": "2 years", "due_date": "2024-09-20", "overdue": "1y 7m", "days": 590}, {"customer_number": "321654987", "file_name": "signed catalogue.jpeg", "file_category": "photo", "file_created_at": "2022-09-21", "disposal_time": "2 years", "due_date": "2024-09-21", "overdue": "1y 7m", "days": 589}, {"customer_number": "444555666", "file_name": "annual brief.jpeg", "file_category": "photo", "file_created_at": "2024-03-21", "disposal_time": "6 months", "due_date": "2024-09-21", "overdue": "1y 7m", "days": 589}, {"customer_number": "987654321", "file_name": "secondary invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-01", "disposal_time": "6 months", "due_date": "2024-10-01", "overdue": "1y 7m", "days": 579}, {"customer_number": "789321654", "file_name": "updated claim.jpeg", "file_category": "photo", "file_created_at": "2022-10-02", "disposal_time": "2 years", "due_date": "2024-10-02", "overdue": "1y 7m", "days": 578}, {"customer_number": "987654321", "file_name": "revised schedule.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-04", "disposal_time": "6 months", "due_date": "2024-10-04", "overdue": "1y 7m", "days": 576}, {"customer_number": "456123789", "file_name": "original claim.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-13", "disposal_time": "6 months", "due_date": "2024-10-13", "overdue": "1y 6m", "days": 567}, {"customer_number": "321654987", "file_name": "revised summary.jpeg", "file_category": "receipt", "file_created_at": "2022-10-17", "disposal_time": "2 years", "due_date": "2024-10-17", "overdue": "1y 6m", "days": 563}, {"customer_number": "111999888", "file_name": "summary notice.jpeg", "file_category": "photo", "file_created_at": "2022-10-21", "disposal_time": "2 years", "due_date": "2024-10-21", "overdue": "1y 6m", "days": 559}, {"customer_number": "111999888", "file_name": "signed review.docx", "file_category": "letter", "file_created_at": "2024-04-21", "disposal_time": "6 months", "due_date": "2024-10-21", "overdue": "1y 6m", "days": 559}, {"customer_number": "654987321", "file_name": "verified notice.jpeg", "file_category": "receipt", "file_created_at": "2022-10-22", "disposal_time": "2 years", "due_date": "2024-10-22", "overdue": "1y 6m", "days": 558}, {"customer_number": "444555666", "file_name": "annual audit.pdf", "file_category": "receipt", "file_created_at": "2022-10-28", "disposal_time": "2 years", "due_date": "2024-10-28", "overdue": "1y 6m", "days": 552}, {"customer_number": "444555666", "file_name": "original inspection.pdf", "file_category": "receipt", "file_created_at": "2022-10-28", "disposal_time": "2 years", "due_date": "2024-10-28", "overdue": "1y 6m", "days": 552}, {"customer_number": "111999888", "file_name": "secondary memo.pdf", "file_category": "receipt", "file_created_at": "2022-10-31", "disposal_time": "2 years", "due_date": "2024-10-31", "overdue": "1y 6m", "days": 549}, {"customer_number": "321654987", "file_name": "monthly inspection.jpeg", "file_category": "photo", "file_created_at": "2024-05-02", "disposal_time": "6 months", "due_date": "2024-11-02", "overdue": "1y 6m", "days": 547}, {"customer_number": "789321654", "file_name": "official guide.xlsx", "file_category": "spreadsheet", "file_created_at": "2022-11-05", "disposal_time": "2 years", "due_date": "2024-11-05", "overdue": "1y 5m", "days": 544}, {"customer_number": "444555666", "file_name": "external summary.docx", "file_category": "receipt", "file_created_at": "2022-11-06", "disposal_time": "2 years", "due_date": "2024-11-06", "overdue": "1y 5m", "days": 543}, {"customer_number": "987654321", "file_name": "secondary proposal.docx", "file_category": "letter", "file_created_at": "2022-11-07", "disposal_time": "2 years", "due_date": "2024-11-07", "overdue": "1y 5m", "days": 542}, {"customer_number": "123456789", "file_name": "draft plan.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-05-09", "disposal_time": "6 months", "due_date": "2024-11-09", "overdue": "1y 5m", "days": 540}, {"customer_number": "444555666", "file_name": "updated inspection.docx", "file_category": "letter", "file_created_at": "2022-11-12", "disposal_time": "2 years", "due_date": "2024-11-12", "overdue": "1y 5m", "days": 537}, {"customer_number": "654987321", "file_name": "updated summary.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-05-20", "disposal_time": "6 months", "due_date": "2024-11-20", "overdue": "1y 5m", "days": 529}, {"customer_number": "321654987", "file_name": "general plan.jpeg", "file_category": "receipt", "file_created_at": "2022-11-27", "disposal_time": "2 years", "due_date": "2024-11-27", "overdue": "1y 5m", "days": 522}, {"customer_number": "456123789", "file_name": "verified brief.docx", "file_category": "receipt", "file_created_at": "2024-06-02", "disposal_time": "6 months", "due_date": "2024-12-02", "overdue": "1y 5m", "days": 517}, {"customer_number": "789321654", "file_name": "interim notice.pdf", "file_category": "receipt", "file_created_at": "2024-06-03", "disposal_time": "6 months", "due_date": "2024-12-03", "overdue": "1y 5m", "days": 516}, {"customer_number": "789321654", "file_name": "verified approval.docx", "file_category": "receipt", "file_created_at": "2022-12-12", "disposal_time": "2 years", "due_date": "2024-12-12", "overdue": "1y 4m", "days": 507}, {"customer_number": "111999888", "file_name": "verified audit.jpeg", "file_category": "photo", "file_created_at": "2022-12-16", "disposal_time": "2 years", "due_date": "2024-12-16", "overdue": "1y 4m", "days": 503}, {"customer_number": "789321654", "file_name": "pending declaration.jpeg", "file_category": "photo", "file_created_at": "2022-12-19", "disposal_time": "2 years", "due_date": "2024-12-19", "overdue": "1y 4m", "days": 500}, {"customer_number": "987654321", "file_name": "interim guide.docx", "file_category": "letter", "file_created_at": "2022-12-23", "disposal_time": "2 years", "due_date": "2024-12-23", "overdue": "1y 4m", "days": 496}, {"customer_number": "654987321", "file_name": "external catalogue.jpeg", "file_category": "receipt", "file_created_at": "2022-12-30", "disposal_time": "2 years", "due_date": "2024-12-30", "overdue": "1y 4m", "days": 489}, {"customer_number": "444555666", "file_name": "supplementary report.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-01-01", "disposal_time": "2 years", "due_date": "2025-01-01", "overdue": "1y 4m", "days": 487}, {"customer_number": "987654321", "file_name": "updated notice.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-07-04", "disposal_time": "6 months", "due_date": "2025-01-04", "overdue": "1y 3m", "days": 484}, {"customer_number": "321654987", "file_name": "quarterly catalogue.pdf", "file_category": "receipt", "file_created_at": "2024-07-06", "disposal_time": "6 months", "due_date": "2025-01-06", "overdue": "1y 3m", "days": 482}, {"customer_number": "654987321", "file_name": "verified receipt.docx", "file_category": "receipt", "file_created_at": "2024-07-07", "disposal_time": "6 months", "due_date": "2025-01-07", "overdue": "1y 3m", "days": 481}, {"customer_number": "789321654", "file_name": "official audit.pdf", "file_category": "receipt", "file_created_at": "2024-07-10", "disposal_time": "6 months", "due_date": "2025-01-10", "overdue": "1y 3m", "days": 478}, {"customer_number": "321654987", "file_name": "general register.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-07-11", "disposal_time": "6 months", "due_date": "2025-01-11", "overdue": "1y 3m", "days": 477}, {"customer_number": "789321654", "file_name": "supplementary application.pdf", "file_category": "letter", "file_created_at": "2023-01-12", "disposal_time": "2 years", "due_date": "2025-01-12", "overdue": "1y 3m", "days": 476}, {"customer_number": "111999888", "file_name": "external claim.jpeg", "file_category": "photo", "file_created_at": "2024-07-12", "disposal_time": "6 months", "due_date": "2025-01-12", "overdue": "1y 3m", "days": 476}, {"customer_number": "444555666", "file_name": "updated report.pdf", "file_category": "receipt", "file_created_at": "2023-01-15", "disposal_time": "2 years", "due_date": "2025-01-15", "overdue": "1y 3m", "days": 473}, {"customer_number": "987654321", "file_name": "updated assessment.docx", "file_category": "letter", "file_created_at": "2023-01-17", "disposal_time": "2 years", "due_date": "2025-01-17", "overdue": "1y 3m", "days": 471}, {"customer_number": "321654987", "file_name": "annual proposal.docx", "file_category": "letter", "file_created_at": "2023-01-17", "disposal_time": "2 years", "due_date": "2025-01-17", "overdue": "1y 3m", "days": 471}, {"customer_number": "111999888", "file_name": "quarterly submission.jpeg", "file_category": "photo", "file_created_at": "2024-07-20", "disposal_time": "6 months", "due_date": "2025-01-20", "overdue": "1y 3m", "days": 468}, {"customer_number": "789321654", "file_name": "monthly application.jpeg", "file_category": "photo", "file_created_at": "2023-01-26", "disposal_time": "2 years", "due_date": "2025-01-26", "overdue": "1y 3m", "days": 462}, {"customer_number": "321654987", "file_name": "quarterly certificate.docx", "file_category": "receipt", "file_created_at": "2024-08-01", "disposal_time": "6 months", "due_date": "2025-02-01", "overdue": "1y 3m", "days": 456}, {"customer_number": "111999888", "file_name": "detailed proposal.docx", "file_category": "letter", "file_created_at": "2024-08-07", "disposal_time": "6 months", "due_date": "2025-02-07", "overdue": "1y 2m", "days": 450}, {"customer_number": "444555666", "file_name": "secondary statement.docx", "file_category": "letter", "file_created_at": "2024-08-13", "disposal_time": "6 months", "due_date": "2025-02-13", "overdue": "1y 2m", "days": 444}, {"customer_number": "987654321", "file_name": "final policy.docx", "file_category": "letter", "file_created_at": "2024-08-17", "disposal_time": "6 months", "due_date": "2025-02-17", "overdue": "1y 2m", "days": 440}, {"customer_number": "321654987", "file_name": "secondary catalogue.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-09-02", "disposal_time": "6 months", "due_date": "2025-03-02", "overdue": "1y 2m", "days": 427}, {"customer_number": "123456789", "file_name": "internal request.jpeg", "file_category": "photo", "file_created_at": "2023-03-06", "disposal_time": "2 years", "due_date": "2025-03-06", "overdue": "1y 1m", "days": 423}, {"customer_number": "789321654", "file_name": "primary guide.docx", "file_category": "letter", "file_created_at": "2023-03-09", "disposal_time": "2 years", "due_date": "2025-03-09", "overdue": "1y 1m", "days": 420}, {"customer_number": "123456789", "file_name": "detailed policy.jpeg", "file_category": "photo", "file_created_at": "2023-03-09", "disposal_time": "2 years", "due_date": "2025-03-09", "overdue": "1y 1m", "days": 420}, {"customer_number": "456123789", "file_name": "interim form.jpeg", "file_category": "photo", "file_created_at": "2024-09-29", "disposal_time": "6 months", "due_date": "2025-03-29", "overdue": "1y 1m", "days": 400}, {"customer_number": "789321654", "file_name": "detailed notice.docx", "file_category": "receipt", "file_created_at": "2023-04-01", "disposal_time": "2 years", "due_date": "2025-04-01", "overdue": "1y 1m", "days": 397}, {"customer_number": "654987321", "file_name": "detailed letter.jpeg", "file_category": "photo", "file_created_at": "2024-10-02", "disposal_time": "6 months", "due_date": "2025-04-02", "overdue": "1y 1m", "days": 396}, {"customer_number": "456123789", "file_name": "internal agreement.jpeg", "file_category": "photo", "file_created_at": "2023-04-05", "disposal_time": "2 years", "due_date": "2025-04-05", "overdue": "1y 0m", "days": 393}, {"customer_number": "789321654", "file_name": "quarterly inspection.docx", "file_category": "letter", "file_created_at": "2023-04-08", "disposal_time": "2 years", "due_date": "2025-04-08", "overdue": "1y 0m", "days": 390}, {"customer_number": "987654321", "file_name": "quarterly assessment.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-04-08", "disposal_time": "2 years", "due_date": "2025-04-08", "overdue": "1y 0m", "days": 390}, {"customer_number": "111999888", "file_name": "summary policy.jpeg", "file_category": "photo", "file_created_at": "2024-10-21", "disposal_time": "6 months", "due_date": "2025-04-21", "overdue": "1y 0m", "days": 377}, {"customer_number": "987654321", "file_name": "original contract.jpeg", "file_category": "receipt", "file_created_at": "2023-04-24", "disposal_time": "2 years", "due_date": "2025-04-24", "overdue": "1y 0m", "days": 374}, {"customer_number": "321654987", "file_name": "standard review.pdf", "file_category": "letter", "file_created_at": "2024-10-26", "disposal_time": "6 months", "due_date": "2025-04-26", "overdue": "1y 0m", "days": 372}, {"customer_number": "456123789", "file_name": "monthly summary.pdf", "file_category": "receipt", "file_created_at": "2023-04-26", "disposal_time": "2 years", "due_date": "2025-04-26", "overdue": "1y 0m", "days": 372}, {"customer_number": "123456789", "file_name": "internal invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-11-07", "disposal_time": "6 months", "due_date": "2025-05-07", "overdue": "361d", "days": 361}, {"customer_number": "654987321", "file_name": "quarterly claim.jpeg", "file_category": "photo", "file_created_at": "2024-11-10", "disposal_time": "6 months", "due_date": "2025-05-10", "overdue": "358d", "days": 358}, {"customer_number": "444555666", "file_name": "secondary contract.jpeg", "file_category": "photo", "file_created_at": "2024-11-14", "disposal_time": "6 months", "due_date": "2025-05-14", "overdue": "354d", "days": 354}, {"customer_number": "456123789", "file_name": "draft catalogue.pdf", "file_category": "letter", "file_created_at": "2023-05-27", "disposal_time": "2 years", "due_date": "2025-05-27", "overdue": "341d", "days": 341}, {"customer_number": "654987321", "file_name": "general request.pdf", "file_category": "letter", "file_created_at": "2024-11-30", "disposal_time": "6 months", "due_date": "2025-05-30", "overdue": "338d", "days": 338}, {"customer_number": "444555666", "file_name": "secondary report.pdf", "file_category": "receipt", "file_created_at": "2024-12-03", "disposal_time": "6 months", "due_date": "2025-06-03", "overdue": "334d", "days": 334}, {"customer_number": "654987321", "file_name": "interim submission.jpeg", "file_category": "photo", "file_created_at": "2024-12-03", "disposal_time": "6 months", "due_date": "2025-06-03", "overdue": "334d", "days": 334}, {"customer_number": "321654987", "file_name": "verified response.jpeg", "file_category": "photo", "file_created_at": "2023-06-05", "disposal_time": "2 years", "due_date": "2025-06-05", "overdue": "332d", "days": 332}, {"customer_number": "789321654", "file_name": "draft statement.jpeg", "file_category": "photo", "file_created_at": "2023-06-05", "disposal_time": "2 years", "due_date": "2025-06-05", "overdue": "332d", "days": 332}, {"customer_number": "444555666", "file_name": "supplementary form.pdf", "file_category": "letter", "file_created_at": "2023-06-06", "disposal_time": "2 years", "due_date": "2025-06-06", "overdue": "331d", "days": 331}, {"customer_number": "789321654", "file_name": "summary schedule.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-06-07", "disposal_time": "2 years", "due_date": "2025-06-07", "overdue": "330d", "days": 330}, {"customer_number": "456123789", "file_name": "special inspection.pdf", "file_category": "letter", "file_created_at": "2024-12-12", "disposal_time": "6 months", "due_date": "2025-06-12", "overdue": "325d", "days": 325}, {"customer_number": "654987321", "file_name": "detailed proposal.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-12-16", "disposal_time": "6 months", "due_date": "2025-06-16", "overdue": "321d", "days": 321}, {"customer_number": "789321654", "file_name": "updated proposal.pdf", "file_category": "letter", "file_created_at": "2024-12-16", "disposal_time": "6 months", "due_date": "2025-06-16", "overdue": "321d", "days": 321}, {"customer_number": "123456789", "file_name": "general notice.jpeg", "file_category": "photo", "file_created_at": "2023-06-19", "disposal_time": "2 years", "due_date": "2025-06-19", "overdue": "318d", "days": 318}, {"customer_number": "789321654", "file_name": "external summary.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-12-25", "disposal_time": "6 months", "due_date": "2025-06-25", "overdue": "312d", "days": 312}, {"customer_number": "456123789", "file_name": "general document.jpeg", "file_category": "photo", "file_created_at": "2023-06-28", "disposal_time": "2 years", "due_date": "2025-06-28", "overdue": "309d", "days": 309}, {"customer_number": "321654987", "file_name": "special form.jpeg", "file_category": "photo", "file_created_at": "2023-07-05", "disposal_time": "2 years", "due_date": "2025-07-05", "overdue": "302d", "days": 302}, {"customer_number": "987654321", "file_name": "interim schedule.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-01-07", "disposal_time": "6 months", "due_date": "2025-07-07", "overdue": "300d", "days": 300}, {"customer_number": "654987321", "file_name": "monthly register.jpeg", "file_category": "photo", "file_created_at": "2023-07-10", "disposal_time": "2 years", "due_date": "2025-07-10", "overdue": "297d", "days": 297}, {"customer_number": "654987321", "file_name": "detailed invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-07-11", "disposal_time": "2 years", "due_date": "2025-07-11", "overdue": "296d", "days": 296}, {"customer_number": "987654321", "file_name": "special brief.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-07-12", "disposal_time": "2 years", "due_date": "2025-07-12", "overdue": "295d", "days": 295}, {"customer_number": "789321654", "file_name": "signed proposal.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-07-12", "disposal_time": "2 years", "due_date": "2025-07-12", "overdue": "295d", "days": 295}, {"customer_number": "789321654", "file_name": "approved document.jpeg", "file_category": "photo", "file_created_at": "2023-07-13", "disposal_time": "2 years", "due_date": "2025-07-13", "overdue": "294d", "days": 294}, {"customer_number": "444555666", "file_name": "monthly form.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-01-17", "disposal_time": "6 months", "due_date": "2025-07-17", "overdue": "290d", "days": 290}, {"customer_number": "456123789", "file_name": "signed letter.jpeg", "file_category": "photo", "file_created_at": "2025-01-21", "disposal_time": "6 months", "due_date": "2025-07-21", "overdue": "286d", "days": 286}, {"customer_number": "789321654", "file_name": "draft statement.jpeg", "file_category": "receipt", "file_created_at": "2023-07-24", "disposal_time": "2 years", "due_date": "2025-07-24", "overdue": "283d", "days": 283}, {"customer_number": "654987321", "file_name": "detailed guide.pdf", "file_category": "letter", "file_created_at": "2025-01-27", "disposal_time": "6 months", "due_date": "2025-07-27", "overdue": "280d", "days": 280}, {"customer_number": "321654987", "file_name": "quarterly assessment.jpeg", "file_category": "photo", "file_created_at": "2025-01-28", "disposal_time": "6 months", "due_date": "2025-07-28", "overdue": "279d", "days": 279}, {"customer_number": "789321654", "file_name": "monthly guide.jpeg", "file_category": "receipt", "file_created_at": "2025-01-31", "disposal_time": "6 months", "due_date": "2025-07-31", "overdue": "276d", "days": 276}, {"customer_number": "987654321", "file_name": "approved certificate.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-02-01", "disposal_time": "6 months", "due_date": "2025-08-01", "overdue": "275d", "days": 275}, {"customer_number": "123456789", "file_name": "detailed catalogue.pdf", "file_category": "letter", "file_created_at": "2025-02-04", "disposal_time": "6 months", "due_date": "2025-08-04", "overdue": "272d", "days": 272}, {"customer_number": "789321654", "file_name": "quarterly guide.pdf", "file_category": "letter", "file_created_at": "2025-02-04", "disposal_time": "6 months", "due_date": "2025-08-04", "overdue": "272d", "days": 272}, {"customer_number": "987654321", "file_name": "archived catalogue.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-08-05", "disposal_time": "2 years", "due_date": "2025-08-05", "overdue": "271d", "days": 271}, {"customer_number": "444555666", "file_name": "general approval.jpeg", "file_category": "photo", "file_created_at": "2025-02-13", "disposal_time": "6 months", "due_date": "2025-08-13", "overdue": "263d", "days": 263}, {"customer_number": "654987321", "file_name": "archived inspection.jpeg", "file_category": "receipt", "file_created_at": "2025-02-19", "disposal_time": "6 months", "due_date": "2025-08-19", "overdue": "257d", "days": 257}, {"customer_number": "987654321", "file_name": "updated report.pdf", "file_category": "letter", "file_created_at": "2025-02-19", "disposal_time": "6 months", "due_date": "2025-08-19", "overdue": "257d", "days": 257}, {"customer_number": "123456789", "file_name": "supplementary review.docx", "file_category": "letter", "file_created_at": "2025-02-25", "disposal_time": "6 months", "due_date": "2025-08-25", "overdue": "251d", "days": 251}, {"customer_number": "789321654", "file_name": "quarterly catalogue.jpeg", "file_category": "photo", "file_created_at": "2025-03-02", "disposal_time": "6 months", "due_date": "2025-09-02", "overdue": "243d", "days": 243}, {"customer_number": "987654321", "file_name": "standard proposal.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-03-06", "disposal_time": "6 months", "due_date": "2025-09-06", "overdue": "239d", "days": 239}, {"customer_number": "111999888", "file_name": "detailed notice.jpeg", "file_category": "receipt", "file_created_at": "2025-03-08", "disposal_time": "6 months", "due_date": "2025-09-08", "overdue": "237d", "days": 237}, {"customer_number": "123456789", "file_name": "supplementary receipt.docx", "file_category": "receipt", "file_created_at": "2025-03-17", "disposal_time": "6 months", "due_date": "2025-09-17", "overdue": "228d", "days": 228}, {"customer_number": "789321654", "file_name": "signed application.docx", "file_category": "letter", "file_created_at": "2025-03-22", "disposal_time": "6 months", "due_date": "2025-09-22", "overdue": "223d", "days": 223}, {"customer_number": "987654321", "file_name": "supplementary brief.jpeg", "file_category": "photo", "file_created_at": "2025-03-24", "disposal_time": "6 months", "due_date": "2025-09-24", "overdue": "221d", "days": 221}, {"customer_number": "444555666", "file_name": "updated approval.docx", "file_category": "letter", "file_created_at": "2025-03-31", "disposal_time": "6 months", "due_date": "2025-09-30", "overdue": "215d", "days": 215}, {"customer_number": "111999888", "file_name": "original report.jpeg", "file_category": "photo", "file_created_at": "2023-10-03", "disposal_time": "2 years", "due_date": "2025-10-03", "overdue": "212d", "days": 212}, {"customer_number": "456123789", "file_name": "primary inspection.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-04-07", "disposal_time": "6 months", "due_date": "2025-10-07", "overdue": "208d", "days": 208}, {"customer_number": "654987321", "file_name": "revised certificate.jpeg", "file_category": "receipt", "file_created_at": "2023-10-15", "disposal_time": "2 years", "due_date": "2025-10-15", "overdue": "200d", "days": 200}, {"customer_number": "444555666", "file_name": "signed plan.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-10-16", "disposal_time": "2 years", "due_date": "2025-10-16", "overdue": "199d", "days": 199}, {"customer_number": "123456789", "file_name": "standard document.pdf", "file_category": "letter", "file_created_at": "2023-10-18", "disposal_time": "2 years", "due_date": "2025-10-18", "overdue": "197d", "days": 197}, {"customer_number": "654987321", "file_name": "external record.docx", "file_category": "letter", "file_created_at": "2023-10-21", "disposal_time": "2 years", "due_date": "2025-10-21", "overdue": "194d", "days": 194}, {"customer_number": "789321654", "file_name": "final record.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-10-24", "disposal_time": "2 years", "due_date": "2025-10-24", "overdue": "191d", "days": 191}, {"customer_number": "123456789", "file_name": "standard log.jpeg", "file_category": "photo", "file_created_at": "2023-10-27", "disposal_time": "2 years", "due_date": "2025-10-27", "overdue": "188d", "days": 188}, {"customer_number": "321654987", "file_name": "detailed memo.docx", "file_category": "receipt", "file_created_at": "2025-05-01", "disposal_time": "6 months", "due_date": "2025-11-01", "overdue": "183d", "days": 183}, {"customer_number": "321654987", "file_name": "revised letter.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-05-01", "disposal_time": "6 months", "due_date": "2025-11-01", "overdue": "183d", "days": 183}, {"customer_number": "987654321", "file_name": "standard record.jpeg", "file_category": "receipt", "file_created_at": "2023-11-02", "disposal_time": "2 years", "due_date": "2025-11-02", "overdue": "182d", "days": 182}, {"customer_number": "321654987", "file_name": "monthly catalogue.jpeg", "file_category": "photo", "file_created_at": "2023-11-04", "disposal_time": "2 years", "due_date": "2025-11-04", "overdue": "180d", "days": 180}, {"customer_number": "654987321", "file_name": "monthly confirmation.docx", "file_category": "letter", "file_created_at": "2025-05-08", "disposal_time": "6 months", "due_date": "2025-11-08", "overdue": "176d", "days": 176}, {"customer_number": "654987321", "file_name": "detailed summary.pdf", "file_category": "letter", "file_created_at": "2023-11-10", "disposal_time": "2 years", "due_date": "2025-11-10", "overdue": "174d", "days": 174}, {"customer_number": "123456789", "file_name": "general submission.jpeg", "file_category": "photo", "file_created_at": "2025-05-21", "disposal_time": "6 months", "due_date": "2025-11-21", "overdue": "163d", "days": 163}, {"customer_number": "321654987", "file_name": "draft review.docx", "file_category": "receipt", "file_created_at": "2023-11-23", "disposal_time": "2 years", "due_date": "2025-11-23", "overdue": "161d", "days": 161}, {"customer_number": "456123789", "file_name": "official response.docx", "file_category": "receipt", "file_created_at": "2023-11-25", "disposal_time": "2 years", "due_date": "2025-11-25", "overdue": "159d", "days": 159}, {"customer_number": "444555666", "file_name": "detailed brief.docx", "file_category": "receipt", "file_created_at": "2025-05-29", "disposal_time": "6 months", "due_date": "2025-11-29", "overdue": "155d", "days": 155}, {"customer_number": "987654321", "file_name": "standard report.jpeg", "file_category": "photo", "file_created_at": "2025-06-11", "disposal_time": "6 months", "due_date": "2025-12-11", "overdue": "143d", "days": 143}, {"customer_number": "123456789", "file_name": "detailed form.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-12-13", "disposal_time": "2 years", "due_date": "2025-12-13", "overdue": "141d", "days": 141}, {"customer_number": "456123789", "file_name": "secondary claim.xlsx", "file_category": "spreadsheet", "file_created_at": "2023-12-13", "disposal_time": "2 years", "due_date": "2025-12-13", "overdue": "141d", "days": 141}, {"customer_number": "444555666", "file_name": "supplementary record.jpeg", "file_category": "photo", "file_created_at": "2025-06-18", "disposal_time": "6 months", "due_date": "2025-12-18", "overdue": "136d", "days": 136}, {"customer_number": "321654987", "file_name": "updated letter.docx", "file_category": "receipt", "file_created_at": "2025-06-27", "disposal_time": "6 months", "due_date": "2025-12-27", "overdue": "127d", "days": 127}, {"customer_number": "321654987", "file_name": "signed certificate.docx", "file_category": "receipt", "file_created_at": "2023-12-28", "disposal_time": "2 years", "due_date": "2025-12-28", "overdue": "126d", "days": 126}, {"customer_number": "789321654", "file_name": "original certificate.jpeg", "file_category": "photo", "file_created_at": "2024-01-01", "disposal_time": "2 years", "due_date": "2026-01-01", "overdue": "122d", "days": 122}, {"customer_number": "321654987", "file_name": "official confirmation.docx", "file_category": "letter", "file_created_at": "2024-01-07", "disposal_time": "2 years", "due_date": "2026-01-07", "overdue": "116d", "days": 116}, {"customer_number": "789321654", "file_name": "signed summary.docx", "file_category": "letter", "file_created_at": "2024-01-12", "disposal_time": "2 years", "due_date": "2026-01-12", "overdue": "111d", "days": 111}, {"customer_number": "987654321", "file_name": "primary agreement.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-07-13", "disposal_time": "6 months", "due_date": "2026-01-13", "overdue": "110d", "days": 110}, {"customer_number": "321654987", "file_name": "interim summary.docx", "file_category": "letter", "file_created_at": "2024-01-19", "disposal_time": "2 years", "due_date": "2026-01-19", "overdue": "104d", "days": 104}, {"customer_number": "987654321", "file_name": "revised policy.docx", "file_category": "receipt", "file_created_at": "2025-07-20", "disposal_time": "6 months", "due_date": "2026-01-20", "overdue": "103d", "days": 103}, {"customer_number": "987654321", "file_name": "monthly receipt.jpeg", "file_category": "receipt", "file_created_at": "2025-07-23", "disposal_time": "6 months", "due_date": "2026-01-23", "overdue": "100d", "days": 100}, {"customer_number": "987654321", "file_name": "verified guide.pdf", "file_category": "receipt", "file_created_at": "2025-08-01", "disposal_time": "6 months", "due_date": "2026-02-01", "overdue": "91d", "days": 91}, {"customer_number": "987654321", "file_name": "pending inspection.docx", "file_category": "letter", "file_created_at": "2025-08-03", "disposal_time": "6 months", "due_date": "2026-02-03", "overdue": "89d", "days": 89}, {"customer_number": "654987321", "file_name": "verified declaration.pdf", "file_category": "letter", "file_created_at": "2025-08-08", "disposal_time": "6 months", "due_date": "2026-02-08", "overdue": "84d", "days": 84}, {"customer_number": "456123789", "file_name": "verified guide.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-02-12", "disposal_time": "2 years", "due_date": "2026-02-12", "overdue": "80d", "days": 80}, {"customer_number": "111999888", "file_name": "revised brief.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-02-15", "disposal_time": "2 years", "due_date": "2026-02-15", "overdue": "77d", "days": 77}, {"customer_number": "123456789", "file_name": "updated schedule.jpeg", "file_category": "photo", "file_created_at": "2024-02-23", "disposal_time": "2 years", "due_date": "2026-02-23", "overdue": "69d", "days": 69}, {"customer_number": "321654987", "file_name": "special application.jpeg", "file_category": "photo", "file_created_at": "2025-08-30", "disposal_time": "6 months", "due_date": "2026-02-28", "overdue": "64d", "days": 64}, {"customer_number": "987654321", "file_name": "internal catalogue.jpeg", "file_category": "photo", "file_created_at": "2025-08-29", "disposal_time": "6 months", "due_date": "2026-02-28", "overdue": "64d", "days": 64}, {"customer_number": "456123789", "file_name": "quarterly guide.pdf", "file_category": "letter", "file_created_at": "2025-09-06", "disposal_time": "6 months", "due_date": "2026-03-06", "overdue": "58d", "days": 58}, {"customer_number": "123456789", "file_name": "summary invoice.xlsx", "file_category": "spreadsheet", "file_created_at": "2025-09-08", "disposal_time": "6 months", "due_date": "2026-03-08", "overdue": "56d", "days": 56}, {"customer_number": "654987321", "file_name": "signed certificate.pdf", "file_category": "letter", "file_created_at": "2024-03-09", "disposal_time": "2 years", "due_date": "2026-03-09", "overdue": "55d", "days": 55}, {"customer_number": "444555666", "file_name": "revised log.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-03-10", "disposal_time": "2 years", "due_date": "2026-03-10", "overdue": "54d", "days": 54}, {"customer_number": "123456789", "file_name": "supplementary approval.pdf", "file_category": "letter", "file_created_at": "2024-03-11", "disposal_time": "2 years", "due_date": "2026-03-11", "overdue": "53d", "days": 53}, {"customer_number": "654987321", "file_name": "external register.pdf", "file_category": "letter", "file_created_at": "2024-03-14", "disposal_time": "2 years", "due_date": "2026-03-14", "overdue": "50d", "days": 50}, {"customer_number": "111999888", "file_name": "draft declaration.docx", "file_category": "letter", "file_created_at": "2025-09-22", "disposal_time": "6 months", "due_date": "2026-03-22", "overdue": "42d", "days": 42}, {"customer_number": "654987321", "file_name": "official declaration.docx", "file_category": "receipt", "file_created_at": "2024-03-28", "disposal_time": "2 years", "due_date": "2026-03-28", "overdue": "36d", "days": 36}, {"customer_number": "444555666", "file_name": "summary claim.jpeg", "file_category": "photo", "file_created_at": "2025-10-08", "disposal_time": "6 months", "due_date": "2026-04-08", "overdue": "25d", "days": 25}, {"customer_number": "987654321", "file_name": "general receipt.docx", "file_category": "receipt", "file_created_at": "2025-10-09", "disposal_time": "6 months", "due_date": "2026-04-09", "overdue": "24d", "days": 24}, {"customer_number": "789321654", "file_name": "internal approval.pdf", "file_category": "letter", "file_created_at": "2024-04-10", "disposal_time": "2 years", "due_date": "2026-04-10", "overdue": "23d", "days": 23}, {"customer_number": "123456789", "file_name": "primary catalogue.jpeg", "file_category": "photo", "file_created_at": "2025-10-10", "disposal_time": "6 months", "due_date": "2026-04-10", "overdue": "23d", "days": 23}, {"customer_number": "444555666", "file_name": "archived report.jpeg", "file_category": "photo", "file_created_at": "2025-10-12", "disposal_time": "6 months", "due_date": "2026-04-12", "overdue": "21d", "days": 21}, {"customer_number": "321654987", "file_name": "annual submission.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-12", "disposal_time": "2 years", "due_date": "2026-04-12", "overdue": "21d", "days": 21}, {"customer_number": "111999888", "file_name": "special confirmation.docx", "file_category": "receipt", "file_created_at": "2025-10-13", "disposal_time": "6 months", "due_date": "2026-04-13", "overdue": "20d", "days": 20}, {"customer_number": "321654987", "file_name": "detailed approval.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-16", "disposal_time": "2 years", "due_date": "2026-04-16", "overdue": "17d", "days": 17}, {"customer_number": "444555666", "file_name": "quarterly document.xlsx", "file_category": "spreadsheet", "file_created_at": "2024-04-25", "disposal_time": "2 years", "due_date": "2026-04-25", "overdue": "8d", "days": 8}, {"customer_number": "321654987", "file_name": "verified application.pdf", "file_category": "receipt", "file_created_at": "2024-04-26", "disposal_time": "2 years", "due_date": "2026-04-26", "overdue": "7d", "days": 7}], "cat_counts": [["letter", 253], ["photo", 223], ["receipt", 255], ["spreadsheet", 269]], "type_counts": [["type_2", 385], ["type_3", 234], ["type_1", 381]], "customers": ["111999888", "123456789", "321654987", "444555666", "456123789", "654987321", "789321654", "987654321"], "creators": ["112233", "123456", "334455", "445566", "667788", "789012"], "heatmap": {"987654321|334455": 17, "456123789|123456": 22, "111999888|789012": 21, "444555666|123456": 26, "789321654|789012": 21, "654987321|334455": 26, "321654987|667788": 37, "987654321|667788": 27, "654987321|667788": 14, "789321654|123456": 26, "789321654|445566": 18, "456123789|112233": 14, "789321654|667788": 24, "321654987|112233": 24, "123456789|667788": 23, "321654987|123456": 33, "987654321|112233": 26, "456123789|334455": 20, "456123789|667788": 18, "456123789|445566": 11, "654987321|445566": 7, "444555666|789012": 29, "789321654|112233": 27, "654987321|112233": 23, "321654987|445566": 12, "987654321|123456": 26, "111999888|123456": 20, "987654321|789012": 27, "321654987|334455": 20, "654987321|789012": 19, "444555666|112233": 22, "111999888|445566": 16, "444555666|334455": 26, "321654987|789012": 28, "444555666|667788": 19, "654987321|123456": 19, "111999888|334455": 14, "444555666|445566": 20, "123456789|445566": 17, "123456789|789012": 19, "123456789|334455": 17, "789321654|334455": 16, "123456789|112233": 18, "111999888|667788": 22, "111999888|112233": 13, "456123789|789012": 17, "987654321|445566": 12, "123456789|123456": 27}, "heatmap_max": 37};
+
+// ── Colour palette ────────────────────────────────────────────────────────────
+const COLORS = ['#f5c542','#4f8ef5','#3de89b','#f04f5a','#a78bfa','#2dd4bf','#fb923c','#e879f9','#38bdf8','#a3e635'];
+const GRID = 'rgba(37,42,56,0.8)';
+const TICK = { color: '#56607a', font: { family: 'DM Mono', size: 11 } };
+const TOOLTIP = {
+  backgroundColor: '#12151e',
+  borderColor: '#252a38',
+  borderWidth: 1,
+  titleColor: '#56607a',
+  bodyColor: '#e4e7f0',
+  titleFont: { family: 'DM Mono', size: 11 },
+  bodyFont: { family: 'DM Mono', size: 12 },
+};
+
+Chart.defaults.color = '#56607a';
+
+// ── 1. Timeline chart ─────────────────────────────────────────────────────────
+new Chart(document.getElementById('timelineChart'), {
+  type: 'bar',
+  data: {
+    labels: D.timeline.map(([m]) => m),
+    datasets: [{ label: 'Files Created', data: D.timeline.map(([,v]) => v),
+      backgroundColor: '#f5c542cc', borderColor: '#f5c542', borderWidth: 0,
+      borderRadius: 3 }]
+  },
+  options: {
+    responsive: true, plugins: { legend: { display: false }, tooltip: { ...TOOLTIP } },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { ...TICK, maxRotation: 45,
+        callback: function(val, idx) { return idx % 6 === 0 ? this.getLabelForValue(val) : '' } } },
+      y: { grid: { color: GRID }, ticks: TICK }
+    }
+  }
+});
+
+// ── 2. Creator bar (horizontal) ───────────────────────────────────────────────
+new Chart(document.getElementById('creatorChart'), {
+  type: 'bar',
+  data: {
+    labels: D.creator_counts.map(([c]) => c),
+    datasets: [{ label: 'Files', data: D.creator_counts.map(([,v]) => v),
+      backgroundColor: D.creator_counts.map((_, i) => COLORS[i % COLORS.length]),
+      borderRadius: 3 }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...TOOLTIP } },
+    scales: {
+      x: { grid: { color: GRID }, ticks: TICK },
+      y: { grid: { color: 'transparent' }, ticks: { ...TICK } }
+    }
+  }
+});
+
+// ── 3. Customer bar (horizontal) ──────────────────────────────────────────────
+new Chart(document.getElementById('customerChart'), {
+  type: 'bar',
+  data: {
+    labels: D.customer_counts.map(([c]) => c),
+    datasets: [{ label: 'Files', data: D.customer_counts.map(([,v]) => v),
+      backgroundColor: D.customer_counts.map((_, i) => COLORS[(i+3) % COLORS.length]),
+      borderRadius: 3 }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...TOOLTIP } },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { ...TICK }, title: { display: true, text: 'Number of Files', color: '#56607a', font: { family: 'DM Mono', size: 11 } } },
+      y: { grid: { color: 'transparent' }, ticks: { ...TICK, font: { family: 'DM Mono', size: 10 } } }
+    }
+  }
+});
+
+// ── 4. Disposal timeline ──────────────────────────────────────────────────────
+const todayKey = D.today_key;
+const dispColors = D.disp_timeline.map(([m]) => m < todayKey ? '#f04f5a99' : '#2dd4bf99');
+const dispBorders = D.disp_timeline.map(([m]) => m < todayKey ? '#f04f5a' : '#2dd4bf');
+
+const dispChart = new Chart(document.getElementById('disposalChart'), {
+  type: 'bar',
+  data: {
+    labels: D.disp_timeline.map(([m]) => m),
+    datasets: [{ label: 'Files Due', data: D.disp_timeline.map(([,v]) => v),
+      backgroundColor: dispColors, borderColor: dispBorders, borderWidth: 0, borderRadius: 3 }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false }, tooltip: { ...TOOLTIP },
+      annotation: { annotations: {} }
+    },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { ...TICK, maxRotation: 45,
+        callback: function(val, idx) { return idx % 6 === 0 ? this.getLabelForValue(val) : '' } } },
+      y: { grid: { color: GRID }, ticks: TICK }
+    }
+  }
+});
+
+// Add today line manually via afterDraw plugin
+Chart.register({
+  id: 'todayLine',
+  afterDraw(chart) {
+    if (chart.canvas.id !== 'disposalChart') return;
+    const labels = chart.data.labels;
+    const todayIdx = labels.indexOf(todayKey);
+    if (todayIdx < 0) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta.data[todayIdx]) return;
+    const x = meta.data[todayIdx].x;
+    const { top, bottom } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.strokeStyle = '#f04f5a';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    ctx.stroke();
+    ctx.fillStyle = '#f04f5a';
+    ctx.font = "bold 10px 'DM Mono'";
+    ctx.fillText('TODAY', x + 4, top + 14);
+    ctx.restore();
+  }
+});
+
+// ── 5. Overdue table ──────────────────────────────────────────────────────────
+let page = 0;
+const PAGE_SIZE = 10;
+const overdueData = D.overdue;
+const totalPages = Math.ceil(overdueData.length / PAGE_SIZE);
+
+document.getElementById('overdueTotal').textContent = overdueData.length;
+
+function renderTable() {
+  const tbody = document.getElementById('overdueBody');
+  const slice = overdueData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  tbody.innerHTML = slice.map(f => `
+    <tr>
+      <td class="mono muted">${f.customer_number}</td>
+      <td>${f.file_name}</td>
+      <td><span class="badge">${f.file_category}</span></td>
+      <td class="mono muted">${f.file_created_at}</td>
+      <td class="mono muted">${f.disposal_time}</td>
+      <td class="mono muted">${f.due_date}</td>
+      <td class="overdue-val mono">${f.overdue}</td>
+    </tr>
+  `).join('');
+  document.getElementById('pageInfo').textContent = `Page ${page + 1} of ${totalPages}`;
+  document.getElementById('prevBtn').disabled = page === 0;
+  document.getElementById('nextBtn').disabled = page === totalPages - 1;
+}
+
+function changePage(dir) {
+  page = Math.max(0, Math.min(totalPages - 1, page + dir));
+  renderTable();
+}
+
+renderTable();
+
+// ── 6. Category pie ───────────────────────────────────────────────────────────
+new Chart(document.getElementById('catPie'), {
+  type: 'pie',
+  data: {
+    labels: D.cat_counts.map(([n]) => n),
+    datasets: [{ data: D.cat_counts.map(([,v]) => v),
+      backgroundColor: COLORS, borderColor: '#181c27', borderWidth: 2 }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#56607a', font: { family: 'DM Mono', size: 12 }, padding: 16 } },
+      tooltip: { ...TOOLTIP }
+    }
+  }
+});
+
+// ── 7. Type pie ───────────────────────────────────────────────────────────────
+new Chart(document.getElementById('typePie'), {
+  type: 'pie',
+  data: {
+    labels: D.type_counts.map(([n]) => n),
+    datasets: [{ data: D.type_counts.map(([,v]) => v),
+      backgroundColor: ['#4f8ef5','#f5c542','#3de89b'],
+      borderColor: '#181c27', borderWidth: 2 }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#56607a', font: { family: 'DM Mono', size: 12 }, padding: 16 } },
+      tooltip: { ...TOOLTIP }
+    }
+  }
+});
+
+// ── 8. Heatmap ────────────────────────────────────────────────────────────────
+function heatColor(val, max) {
+  if (!val) return 'transparent';
+  const t = val / max;
+  if (t < 0.33) return `rgba(79,142,245,${0.25 + t * 1.5})`;
+  if (t < 0.66) return `rgba(245,197,66,${0.4 + t})`;
+  return `rgba(240,79,90,${0.5 + t * 0.5})`;
+}
+
+const wrap = document.getElementById('heatmapWrap');
+const { customers, creators, heatmap, heatmap_max } = D;
+
+// Header row
+const headerRow = document.createElement('div');
+headerRow.className = 'heatmap-label-row';
+headerRow.innerHTML = '<div style="width:88px"></div>' +
+  creators.map(c => `<div class="heatmap-col-label">${c}</div>`).join('');
+wrap.appendChild(headerRow);
+
+// Data rows
+customers.forEach(cust => {
+  const row = document.createElement('div');
+  row.className = 'heatmap-row';
+  const lbl = document.createElement('div');
+  lbl.className = 'heatmap-row-label';
+  lbl.textContent = cust;
+  row.appendChild(lbl);
+
+  creators.forEach(cr => {
+    const key = `${cust}|${cr}`;
+    const val = heatmap[key] || 0;
+    const cell = document.createElement('div');
+    cell.className = 'heatmap-cell';
+    cell.style.background = heatColor(val, heatmap_max);
+    cell.style.color = val > heatmap_max * 0.5 ? '#fff' : '#e4e7f0';
+    cell.style.borderColor = val ? 'transparent' : '#252a38';
+    cell.textContent = val || '';
+    cell.title = `Customer ${cust} × Creator ${cr}: ${val} files`;
+    row.appendChild(cell);
+  });
+  wrap.appendChild(row);
+});
+
+// Legend
+const legendRow = document.createElement('div');
+legendRow.className = 'legend-row';
+legendRow.innerHTML = `
+  <span>Low</span>
+  ${[0.1,0.3,0.5,0.7,1.0].map(t =>
+    `<span class="legend-swatch" style="background:${heatColor(Math.round(t*heatmap_max), heatmap_max)}"></span>`
+  ).join('')}
+  <span>High (${heatmap_max} files)</span>
+`;
+wrap.appendChild(legendRow);
+
+</script>
+
+
+</body></html>

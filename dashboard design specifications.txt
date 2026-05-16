@@ -1,0 +1,12 @@
+dashboard design specifications  
+
+front end is in React
+accessible via a web browser served from localhost:3010
+always re-run the http server after rebuild 
+API in GraphQL
+backend in GO
+database in postgress
+store all built files in the project folder
+
+
+ 

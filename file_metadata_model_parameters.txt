@@ -1,0 +1,13 @@
+file_metadata_model_parameters 
+"customer_number" must always be 9 digits long 
+there are three "customer_types" they are "type_1", "type_2", "type_3"
+"file_name" must be at least two real words, no swear words, the file extensions can be .pdf, .jpeg, .docx, .xlsx
+the list of "file_category" are "letter", "photo", "receipt", "spreadsheet" 
+"file_creator" must always be a 6 digit number
+all timestamps are in ISO8601 format Zulu time 
+there are four "disposal_time" options "6 months", "2 years", "7 years", "45 years"
+the "disposal_time" is the length of time before the file should be destroyed after the "file_created_at" time
+there are two "directions" "inbound" and "outbound"
+
+
+ 
