@@ -1,10 +1,12 @@
 file_repo_dashboard
 
-a timeline in bar graph format showing files by "file_created_at"
+a timeline in bar graph format showing files by "file_received_at"
 a bar graph of "file_creator" least to most
 a bar graph of Customers to file quantities least to most with the number of files listed on the correct axis  
 a timeline for disposal_time with 'today' 
 a table indicating files that should have been disposed of & how long ago 
+average time beween file_received_at and first_analysis_complete_at
+average time between file_received_at and second_analysis_complete_at
 a pie chart of the "file_category" spread 
 a pie chart of files per "customer_type"
 a visualisation that best shows the relationship between customer and file creator

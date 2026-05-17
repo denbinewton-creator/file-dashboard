@@ -7,6 +7,9 @@
         "file_creator": "123456",
         "file_created_at": "2022-01-30T12:34:56.123Z",
         "disposal_time": "2 years",
-        "direction": "inbound"
+        "direction": "inbound",
+        "file_received_at": "2022-02-10T10:06:36.123Z",
+        "first_analysis_complete_at": "2022-02-10T10:06:37.123Z",
+        "second_analysis_complete_at": "2022-02-10T10:06:47.123Z"
     }
 }
