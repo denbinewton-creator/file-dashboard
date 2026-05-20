@@ -98,19 +98,19 @@ export default function App() {
             <LagStats />
           </div>
 
-          <div className="chart-card">
-            <h2><span className="dot" style={{ background: 'var(--blue)' }} />File Category Spread</h2>
-            <FileCategoryPie />
-          </div>
-
-          <div className="chart-card">
-            <h2><span className="dot" style={{ background: 'var(--teal)' }} />Files by Direction</h2>
-            <DirectionPie />
-          </div>
-
-          <div className="chart-card">
-            <h2><span className="dot" style={{ background: 'var(--purple)' }} />Files by Customer Type</h2>
-            <CustomerTypePie />
+          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+            <div className="chart-card">
+              <h2><span className="dot" style={{ background: 'var(--blue)' }} />File Category Spread</h2>
+              <FileCategoryPie />
+            </div>
+            <div className="chart-card">
+              <h2><span className="dot" style={{ background: 'var(--teal)' }} />Files by Direction</h2>
+              <DirectionPie />
+            </div>
+            <div className="chart-card">
+              <h2><span className="dot" style={{ background: 'var(--purple)' }} />Files by Customer Type</h2>
+              <CustomerTypePie />
+            </div>
           </div>
 
           <div className="chart-card full-width">
