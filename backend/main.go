@@ -242,6 +242,14 @@ var customerTypeCountType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var directionCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "DirectionCount",
+	Fields: graphql.Fields{
+		"direction": &graphql.Field{Type: graphql.String},
+		"count":     &graphql.Field{Type: graphql.Int},
+	},
+})
+
 var customerCreatorType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "CustomerCreatorRelation",
 	Fields: graphql.Fields{
@@ -326,6 +334,10 @@ func buildSchema() (graphql.Schema, error) {
 			"filesByCustomerType": {
 				Type:    graphql.NewList(customerTypeCountType),
 				Resolve: resolveFilesByCustomerType,
+			},
+			"filesByDirection": {
+				Type:    graphql.NewList(directionCountType),
+				Resolve: resolveFilesByDirection,
 			},
 			"customerCreatorRelation": {
 				Type:    graphql.NewList(customerCreatorType),
@@ -539,6 +551,29 @@ func resolveFilesByCustomerType(p graphql.ResolveParams) (interface{}, error) {
 			return nil, err
 		}
 		out = append(out, map[string]interface{}{"customerType": ct, "count": count})
+	}
+	return out, nil
+}
+
+func resolveFilesByDirection(p graphql.ResolveParams) (interface{}, error) {
+	rows, err := db.Query(`
+		SELECT direction, COUNT(*)::int AS count
+		FROM file_metadata
+		GROUP BY direction
+		ORDER BY count DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]interface{}
+	for rows.Next() {
+		var dir string
+		var count int
+		if err := rows.Scan(&dir, &count); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]interface{}{"direction": dir, "count": count})
 	}
 	return out, nil
 }

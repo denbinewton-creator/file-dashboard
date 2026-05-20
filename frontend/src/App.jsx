@@ -8,6 +8,7 @@ import FilesByCustomer from './components/FilesByCustomer'
 import DisposalTimeline from './components/DisposalTimeline'
 import OverdueFilesTable from './components/OverdueFilesTable'
 import FileCategoryPie from './components/FileCategoryPie'
+import DirectionPie from './components/DirectionPie'
 import CustomerTypePie from './components/CustomerTypePie'
 import CustomerCreatorHeatmap from './components/CustomerCreatorHeatmap'
 import LagStats from './components/LagStats'
@@ -100,6 +101,11 @@ export default function App() {
           <div className="chart-card">
             <h2><span className="dot" style={{ background: 'var(--blue)' }} />File Category Spread</h2>
             <FileCategoryPie />
+          </div>
+
+          <div className="chart-card">
+            <h2><span className="dot" style={{ background: 'var(--teal)' }} />Files by Direction</h2>
+            <DirectionPie />
           </div>
 
           <div className="chart-card">
