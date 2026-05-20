@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>File Repository Dashboard — Spec</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --surface: #12151e;
+      --card: #181c27;
+      --border: #252a38;
+      --text: #e4e7f0;
+      --muted: #56607a;
+      --accent: #f5c542;
+      --red: #f04f5a;
+      --green: #3de89b;
+      --blue: #4f8ef5;
+      --purple: #a78bfa;
+      --teal: #2dd4bf;
+      --orange: #fb923c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 48px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    h2 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+
+    /* Stack */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stack-card {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+    }
+
+    .stack-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .stack-sub {
+      font-size: 10px;
+      font-family: 'Courier New', monospace;
+      color: var(--muted);
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .stack-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 3px;
+      gap: 8px;
+    }
+
+    .stack-row span:first-child { color: var(--muted); }
+
+    /* Data model */
+    .model-block {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 2;
+      overflow-x: auto;
+    }
+
+    .field-row { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 24px; }
+    .f-key   { color: var(--blue); }
+    .f-type  { color: var(--green); }
+    .f-con   { color: var(--accent); }
+    .f-muted { color: var(--muted); }
+
+    /* Widgets table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+    }
+
+    thead th {
+      background: var(--surface);
+      color: var(--muted);
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--surface); }
+
+    .num {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+      white-space: nowrap;
+    }
+
+    .tag-kpi      { background: #f5c54222; color: var(--accent); }
+    .tag-stat     { background: #2dd4bf22; color: var(--teal); }
+    .tag-pie      { background: #4f8ef522; color: var(--blue); }
+    .tag-bar      { background: #3de89b22; color: var(--green); }
+    .tag-hbar     { background: #fb923c22; color: var(--orange); }
+    .tag-table    { background: #f04f5a22; color: var(--red); }
+    .tag-heatmap  { background: #a78bfa22; color: var(--purple); }
+    .tag-full     { background: #25293822; color: var(--muted); border: 1px solid var(--border); margin-left: 4px; }
+
+    .calc {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    /* BAU note */
+    .note {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .note-label { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+
+    .refresh-note {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    .refresh-note span { color: var(--teal); }
+  </style>
+</head>
+<body>
+
+  <h1>File <span>Repository</span> Dashboard</h1>
+  <div class="subtitle">Current state specification · generated 2026-05-19</div>
+
+  <!-- Architecture -->
+  <section>
+    <h2><span class="dot" style="background:var(--teal)"></span>Architecture</h2>
+    <div class="stack-grid">
+
+      <div class="stack-card">
+        <div class="stack-title" style="color:var(--blue)">React Frontend</div>
+        <div class="stack-sub">localhost:3010 / Vercel</div>
+        <div class="stack-row"><span>React</span><span style="color:var(--blue)">18.3</span></div>
+        <div class="stack-row"><span>Vite</span><span style="color:var(--blue)">5.4</span></div>
+        <div class="stack-row"><span>Recharts</span><span style="color:var(--blue)">2.13</span></div>
+        <div class="stack-row"><span>Apollo Client</span><span style="color:var(--blue)">3.11</span></div>
+      </div>
+
+      <div class="stack-card">
+        <div class="stack-title" style="color:var(--green)">Go Backend</div>
+        <div class="stack-sub">localhost:8080 / Railway</div>
+        <div class="stack-row"><span>Go</span><span style="color:var(--green)">1.21</span></div>
+        <div class="stack-row"><span>graphql-go</span><span style="color:var(--green)">0.8.1</span></div>
+        <div class="stack-row"><span>lib/pq</span><span style="color:var(--green)">1.10.9</span></div>
+      </div>
+
+      <div class="stack-card">
+        <div class="stack-title" style="color:var(--purple)">PostgreSQL</div>
+        <div class="stack-sub">localhost:5432 / Railway</div>
+        <div class="stack-row"><span>PostgreSQL</span><span style="color:var(--purple)">18</span></div>
+        <div class="stack-row"><span>table</span><span style="color:var(--purple)">file_metadata</span></div>
+      </div>
+
+      <div class="stack-card">
+        <div class="stack-title" style="color:var(--accent)">BAU File Imitator</div>
+        <div class="stack-sub">background / Railway</div>
+        <div class="stack-row"><span>Go</span><span style="color:var(--accent)">1.21</span></div>
+        <div class="stack-row"><span>rate</span><span style="color:var(--accent)">~200 / hour</span></div>
+        <div class="stack-row"><span>interval</span><span style="color:var(--accent)">5 – 31s random</span></div>
+        <div class="stack-row"><span>file_received_at</span><span style="color:var(--accent)">always NOW</span></div>
+      </div>
+
+    </div>
+    <div class="note">
+      <span class="note-label">flow</span>
+      Browser → React (GraphQL/HTTP) → Go Backend (SQL/TCP) → PostgreSQL ← BAU Imitator (SQL/TCP)
+    </div>
+  </section>
+
+  <!-- Data model -->
+  <section>
+    <h2><span class="dot" style="background:var(--accent)"></span>Data Model — file_metadata</h2>
+    <div class="model-block">
+      <div class="f-muted">{</div>
+      <div class="field-row"><span class="f-key">"customer_number"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"9 digits"</span></div>
+      <div class="field-row"><span class="f-key">"customer_type"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"type_1 | type_2 | type_3"</span></div>
+      <div class="field-row"><span class="f-key">"file_name"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"min 2 words · .pdf .jpeg .docx .xlsx"</span></div>
+      <div class="field-row"><span class="f-key">"file_category"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"letter | photo | receipt | spreadsheet"</span></div>
+      <div class="field-row"><span class="f-key">"file_creator"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"6-digit number"</span></div>
+      <div class="field-row"><span class="f-key">"file_created_at"</span><span class="f-muted">:</span><span class="f-type">"timestamptz"</span><span class="f-muted">·</span><span class="f-con">"ISO 8601 Zulu"</span></div>
+      <div class="field-row"><span class="f-key">"disposal_time"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"6 months | 2 years | 7 years | 45 years"</span></div>
+      <div class="field-row"><span class="f-key">"direction"</span><span class="f-muted">:</span><span class="f-type">"string"</span><span class="f-muted">·</span><span class="f-con">"inbound | outbound"</span></div>
+      <div class="field-row"><span class="f-key">"file_received_at"</span><span class="f-muted">:</span><span class="f-type">"timestamptz"</span><span class="f-muted">·</span><span class="f-con">"file_created_at + 5min to 3 months"</span></div>
+      <div class="field-row"><span class="f-key">"first_analysis_complete_at"</span><span class="f-muted">:</span><span class="f-type">"timestamptz"</span><span class="f-muted">·</span><span class="f-con">"file_received_at + 0.5s to 5s"</span></div>
+      <div class="field-row"><span class="f-key">"second_analysis_complete_at"</span><span class="f-muted">:</span><span class="f-type">"timestamptz"</span><span class="f-muted">·</span><span class="f-con">"file_received_at + 15s to 3min"</span></div>
+      <div class="field-row"><span class="f-key">"first_analysis_result"</span><span class="f-muted">:</span><span class="f-type">"boolean"</span><span class="f-muted">·</span><span class="f-con">"PASSED (95%) | FAILED (5%)"</span></div>
+      <div class="f-muted">}</div>
+    </div>
+  </section>
+
+  <!-- Widgets -->
+  <section>
+    <h2><span class="dot" style="background:var(--purple)"></span>Widgets</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Widget</th>
+          <th>Type</th>
+          <th>Calculation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">1</td>
+          <td>Total Files</td>
+          <td><span class="badge tag-kpi">KPI</span></td>
+          <td class="calc">COUNT(*) from file_metadata</td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td>Overdue for Disposal</td>
+          <td><span class="badge tag-kpi">KPI</span></td>
+          <td class="calc">COUNT(*) WHERE disposal date &lt; NOW()</td>
+        </tr>
+        <tr>
+          <td class="num">3</td>
+          <td>First Analysis PASSED</td>
+          <td><span class="badge tag-stat">Stat card</span></td>
+          <td class="calc">this week: first_analysis_result = true AND first_analysis_complete_at &ge; DATE_TRUNC('week', NOW())<br>this year: first_analysis_result = true AND first_analysis_complete_at &ge; DATE_TRUNC('year', NOW())</td>
+        </tr>
+        <tr>
+          <td class="num">4</td>
+          <td>First Analysis FAILED</td>
+          <td><span class="badge tag-stat">Stat card</span></td>
+          <td class="calc">this week: first_analysis_result = false AND first_analysis_complete_at &ge; DATE_TRUNC('week', NOW())<br>this year: first_analysis_result = false AND first_analysis_complete_at &ge; DATE_TRUNC('year', NOW())</td>
+        </tr>
+        <tr>
+          <td class="num">5</td>
+          <td>Files Received This Hour</td>
+          <td><span class="badge tag-kpi">KPI</span></td>
+          <td class="calc">COUNT(*) WHERE file_received_at &ge; NOW() - INTERVAL '1 hour'</td>
+        </tr>
+        <tr>
+          <td class="num">6</td>
+          <td>Files Received This Week</td>
+          <td><span class="badge tag-kpi">KPI</span></td>
+          <td class="calc">COUNT(*) WHERE file_received_at &ge; DATE_TRUNC('week', NOW())</td>
+        </tr>
+        <tr>
+          <td class="num">7</td>
+          <td>Files Received This Year</td>
+          <td><span class="badge tag-kpi">KPI</span></td>
+          <td class="calc">COUNT(*) WHERE file_received_at &ge; DATE_TRUNC('year', NOW())</td>
+        </tr>
+        <tr>
+          <td class="num">8</td>
+          <td>Processing Lag — Avg &amp; P95 per Stage</td>
+          <td><span class="badge tag-stat">Stat card</span><span class="badge tag-full">full width</span></td>
+          <td class="calc">received→1st analysis: AVG / MIN / MAX / P95 of (first_analysis_complete_at - file_received_at)<br>received→2nd analysis: AVG / MIN / MAX / P95 of (second_analysis_complete_at - file_received_at)</td>
+        </tr>
+        <tr>
+          <td class="num">9</td>
+          <td>File Category Spread</td>
+          <td><span class="badge tag-pie">Pie chart</span></td>
+          <td class="calc">COUNT(*) GROUP BY file_category</td>
+        </tr>
+        <tr>
+          <td class="num">10</td>
+          <td>Files by Customer Type</td>
+          <td><span class="badge tag-pie">Pie chart</span></td>
+          <td class="calc">COUNT(*) GROUP BY customer_type</td>
+        </tr>
+        <tr>
+          <td class="num">11</td>
+          <td>Files Created Over Time</td>
+          <td><span class="badge tag-bar">Bar chart</span><span class="badge tag-full">full width</span></td>
+          <td class="calc">COUNT(*) GROUP BY TO_CHAR(file_created_at, 'YYYY-MM')</td>
+        </tr>
+        <tr>
+          <td class="num">12</td>
+          <td>Files by Creator</td>
+          <td><span class="badge tag-hbar">Horiz. bar</span></td>
+          <td class="calc">COUNT(*) GROUP BY file_creator ORDER BY count ASC</td>
+        </tr>
+        <tr>
+          <td class="num">13</td>
+          <td>Files by Customer</td>
+          <td><span class="badge tag-hbar">Horiz. bar</span></td>
+          <td class="calc">COUNT(*) GROUP BY customer_number ORDER BY count ASC</td>
+        </tr>
+        <tr>
+          <td class="num">14</td>
+          <td>Disposal Timeline</td>
+          <td><span class="badge tag-bar">Bar chart</span><span class="badge tag-full">full width</span></td>
+          <td class="calc">COUNT(*) GROUP BY YEAR(disposal date) — red line = today</td>
+        </tr>
+        <tr>
+          <td class="num">15</td>
+          <td>Customer ↔ Creator Relationship</td>
+          <td><span class="badge tag-heatmap">Heatmap</span><span class="badge tag-full">full width</span></td>
+          <td class="calc">COUNT(*) GROUP BY customer_number, file_creator</td>
+        </tr>
+        <tr>
+          <td class="num">16</td>
+          <td>Files Overdue for Disposal</td>
+          <td><span class="badge tag-table">Table</span><span class="badge tag-full">full width</span></td>
+          <td class="calc">WHERE disposal date &lt; NOW() ORDER BY days_overdue DESC · paginated</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="refresh-note">Auto-refresh: <span>every 20 seconds</span> — Apollo refetchQueries({ include: 'active' })</div>
+  </section>
+
+</body>
+</html>

@@ -27,7 +27,7 @@ const MAIN_ARCH = [
   {
     id: 'frontend',
     label: 'React Frontend',
-    sublabel: 'localhost:3010',
+    sublabel: 'file-dashboard-lbro.vercel.app',
     color: '#4f8ef5',
     border: '#4f8ef544',
     items: [
@@ -40,7 +40,7 @@ const MAIN_ARCH = [
   {
     id: 'backend',
     label: 'Go Backend',
-    sublabel: 'localhost:8080',
+    sublabel: 'prolific-nature-production-5839.up.railway.app',
     color: '#3de89b',
     border: '#3de89b44',
     items: [
@@ -52,7 +52,7 @@ const MAIN_ARCH = [
   {
     id: 'database',
     label: 'PostgreSQL',
-    sublabel: 'localhost:5432',
+    sublabel: 'Railway managed PostgreSQL',
     color: '#a78bfa',
     border: '#a78bfa44',
     items: [
