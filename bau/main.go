@@ -16,17 +16,36 @@ import (
 // Valid value sets — must stay consistent with existing data
 var (
 	customerNumbers = []string{"987654321", "456123789", "111999888", "444555666", "789321654", "321654987", "123456789"}
-	customerTypes   = []string{"type_1", "type_2", "type_3"}
-	fileCategories  = []string{"letter", "photo", "receipt", "spreadsheet"}
 	fileCreators    = []string{"334455", "123456", "789012", "445566", "667788", "112233"}
 	disposalTimes   = []string{"6 months", "2 years", "7 years", "45 years"}
 	directions      = []string{"inbound", "outbound"}
 	extensions      = []string{".pdf", ".jpeg", ".docx", ".xlsx"}
 	adjectives      = []string{"primary", "secondary", "internal", "external", "standard", "monthly", "quarterly", "annual", "detailed", "archived", "preliminary", "final", "urgent", "routine"}
 	nouns           = []string{"document", "report", "claim", "certificate", "register", "log", "review", "response", "catalogue", "statement", "summary", "invoice", "notice", "record"}
+
+	// Weighted: type_1 ~55%, type_2 ~30%, type_3 ~15%
+	customerTypeWeights = []struct{ val string; w int }{
+		{"type_1", 55}, {"type_2", 30}, {"type_3", 15},
+	}
+
+	// Weighted: letter ~42%, receipt ~28%, photo ~18%, spreadsheet ~12%
+	fileCategoryWeights = []struct{ val string; w int }{
+		{"letter", 42}, {"receipt", 28}, {"photo", 18}, {"spreadsheet", 12},
+	}
 )
 
-func pick(s []string) string       { return s[rand.Intn(len(s))] }
+func pick(s []string) string { return s[rand.Intn(len(s))] }
+
+func pickWeighted(options []struct{ val string; w int }) string {
+	total := 0
+	for _, o := range options { total += o.w }
+	r := rand.Intn(total)
+	for _, o := range options {
+		r -= o.w
+		if r < 0 { return o.val }
+	}
+	return options[len(options)-1].val
+}
 func randomName() string           { return pick(adjectives) + " " + pick(nouns) + pick(extensions) }
 func getEnv(k, def string) string  {
 	if v := os.Getenv(k); v != "" { return v }
@@ -105,8 +124,8 @@ func insert(db *sql.DB) {
 		   first_analysis_result)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 	`,
-		pick(customerNumbers), pick(customerTypes), randomName(),
-		pick(fileCategories), pick(fileCreators), createdAt,
+		pick(customerNumbers), pickWeighted(customerTypeWeights), randomName(),
+		pickWeighted(fileCategoryWeights), pick(fileCreators), createdAt,
 		pick(disposalTimes), pick(directions),
 		receivedAt, firstAt, secondAt, analysisResult,
 	)
