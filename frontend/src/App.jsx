@@ -2,15 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { ApolloProvider, useQuery, gql, useApolloClient } from '@apollo/client'
 import client from './apolloClient'
 import About from './pages/About'
-import FilesTimeline from './components/FilesTimeline'
-import FilesByCreator from './components/FilesByCreator'
-import FilesByCustomer from './components/FilesByCustomer'
-import DisposalTimeline from './components/DisposalTimeline'
 import OverdueFilesTable from './components/OverdueFilesTable'
 import FileCategoryPie from './components/FileCategoryPie'
 import DirectionPie from './components/DirectionPie'
 import CustomerTypePie from './components/CustomerTypePie'
-import CustomerCreatorHeatmap from './components/CustomerCreatorHeatmap'
 import LagStats from './components/LagStats'
 import LagOutliers from './components/LagOutliers'
 import RecentFileCounts from './components/RecentFileCounts'
@@ -111,31 +106,6 @@ export default function App() {
               <h2><span className="dot" style={{ background: 'var(--purple)' }} />Files by Customer Type</h2>
               <CustomerTypePie />
             </div>
-          </div>
-
-          <div className="chart-card full-width">
-            <h2><span className="dot" style={{ background: 'var(--accent)' }} />Files Created Over Time</h2>
-            <FilesTimeline />
-          </div>
-
-          <div className="chart-card">
-            <h2><span className="dot" style={{ background: 'var(--green)' }} />Files by Creator  <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(least → most)</span></h2>
-            <FilesByCreator />
-          </div>
-
-          <div className="chart-card">
-            <h2><span className="dot" style={{ background: 'var(--orange)' }} />Files by Customer  <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(least → most)</span></h2>
-            <FilesByCustomer />
-          </div>
-
-          <div className="chart-card full-width">
-            <h2><span className="dot" style={{ background: 'var(--teal)' }} />Disposal Timeline <span style={{ color: 'var(--muted)', fontWeight: 400 }}>— red line = today</span></h2>
-            <DisposalTimeline />
-          </div>
-
-          <div className="chart-card full-width">
-            <h2><span className="dot" style={{ background: 'var(--accent)' }} />Customer ↔ Creator Relationship</h2>
-            <CustomerCreatorHeatmap />
           </div>
 
           <div className="chart-card full-width">
