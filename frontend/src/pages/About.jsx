@@ -160,6 +160,60 @@ export default function About() {
         </div>
       </div>
 
+      {/* DB Diagram */}
+      <div className="chart-card">
+        <h2><span className="dot" style={{ background: 'var(--purple)' }} />Database Schema — file_metadata</h2>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 640, borderRadius: 10, overflow: 'hidden', border: '1px solid #a78bfa44' }}>
+            {/* Table header */}
+            <div style={{ background: '#a78bfa22', borderBottom: '1px solid #a78bfa44', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#a78bfa', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.05em' }}>file_metadata</span>
+              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#56607a', marginLeft: 'auto' }}>PostgreSQL 18</span>
+            </div>
+            {/* Column header row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 130px 1fr', background: '#12151e', borderBottom: '1px solid #252a38', padding: '6px 16px', gap: 8 }}>
+              {['', 'column', 'type', 'constraint'].map(h => (
+                <span key={h} style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: '#56607a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
+              ))}
+            </div>
+            {/* Rows */}
+            {[
+              { name: 'id',                          type: 'SERIAL',       constraint: 'PRIMARY KEY',                  pk: true  },
+              { name: 'customer_number',             type: 'VARCHAR(9)',   constraint: '9 digits'                              },
+              { name: 'customer_type',               type: 'VARCHAR(10)',  constraint: 'type_1 | type_2 | type_3'              },
+              { name: 'file_name',                   type: 'VARCHAR(255)', constraint: 'min 2 words'                           },
+              { name: 'file_category',               type: 'VARCHAR(20)',  constraint: 'letter | photo | receipt | spreadsheet' },
+              { name: 'file_creator',                type: 'VARCHAR(6)',   constraint: '6-digit number'                        },
+              { name: 'file_created_at',             type: 'TIMESTAMPTZ', constraint: 'ISO 8601 Zulu'                         },
+              { name: 'disposal_time',               type: 'VARCHAR(20)',  constraint: '6m | 2y | 7y | 45y'                   },
+              { name: 'direction',                   type: 'VARCHAR(10)',  constraint: 'inbound | outbound'                    },
+              { name: 'file_received_at',            type: 'TIMESTAMPTZ', constraint: 'created_at + 5min→3mo'                },
+              { name: 'first_analysis_complete_at',  type: 'TIMESTAMPTZ', constraint: 'received_at + 0.5s→5s'                },
+              { name: 'second_analysis_complete_at', type: 'TIMESTAMPTZ', constraint: 'received_at + 15s→3min'               },
+              { name: 'first_analysis_result',       type: 'BOOLEAN',     constraint: 'PASSED 95% | FAILED 5%'               },
+            ].map((col, i) => (
+              <div key={col.name} style={{
+                display: 'grid',
+                gridTemplateColumns: '28px 1fr 130px 1fr',
+                padding: '7px 16px',
+                gap: 8,
+                alignItems: 'center',
+                background: i % 2 === 0 ? '#181c27' : '#12151e',
+                borderBottom: i < 12 ? '1px solid #252a38' : 'none',
+              }}>
+                <span style={{ fontSize: 9, fontFamily: 'DM Mono, monospace', color: col.pk ? '#f5c542' : '#252a38', fontWeight: 700 }}>
+                  {col.pk ? 'PK' : ''}
+                </span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: col.pk ? '#f5c542' : '#e4e7f0' }}>{col.name}</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#2dd4bf' }}>{col.type}</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: '#56607a' }}>{col.constraint}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Data Model */}
       <div className="chart-card">
         <h2><span className="dot" style={{ background: 'var(--accent)' }} />Data Model — file_metadata</h2>
