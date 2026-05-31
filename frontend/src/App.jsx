@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { ApolloProvider, useQuery, gql, useApolloClient } from '@apollo/client'
 import client from './apolloClient'
 import About from './pages/About'
+import Synopsis from './pages/Synopsis'
 import OverdueFilesTable from './components/OverdueFilesTable'
 import FileCategoryPie from './components/FileCategoryPie'
 import DirectionPie from './components/DirectionPie'
 import CustomerTypePie from './components/CustomerTypePie'
 import LagStats from './components/LagStats'
-import LagOutliers from './components/LagOutliers'
 import RecentFileCounts from './components/RecentFileCounts'
 import AnalysisResult from './components/AnalysisResult'
 
@@ -50,6 +50,7 @@ function AutoRefresh() {
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'about',     label: 'About' },
+  { id: 'synopsis',  label: 'Synopsis' },
 ]
 
 export default function App() {
@@ -82,7 +83,8 @@ export default function App() {
         </header>
 
         <AutoRefresh />
-        {page === 'about' ? <About /> : null}
+        {page === 'about'    ? <About />    : null}
+        {page === 'synopsis' ? <Synopsis /> : null}
         {page === 'dashboard' ? <KPIBar /> : null}
         {page === 'dashboard' ? <AnalysisResult /> : null}
         {page === 'dashboard' ? <RecentFileCounts /> : null}

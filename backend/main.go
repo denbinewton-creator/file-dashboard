@@ -61,9 +61,8 @@ func main() {
 		log.Fatalf("failed to setup database: %v", err)
 	}
 
-	// ── Function 1: Aggregator ─────────────────────────────────────────────
-	// Runs immediately in background so the HTTP server starts without waiting
-	// for the initial catch-up (which can take many 500-row batches).
+	// Aggregator goroutine — starts immediately so the HTTP server is not
+	// blocked waiting for the initial catch-up on a large file_metadata table.
 	go func() {
 		log.Println("aggregator: initial run...")
 		runAggregation()
@@ -76,8 +75,6 @@ func main() {
 		}
 	}()
 
-	// ── Function 2: GraphQL API ────────────────────────────────────────────
-	// Services all GraphQL queries exclusively from the stats tables.
 	schema, err := buildSchema()
 	if err != nil {
 		log.Fatalf("failed to build schema: %v", err)
@@ -90,10 +87,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
-// ── Database setup ─────────────────────────────────────────────────────────────
+// ── Database setup ────────────────────────────────────────────────────────────
 
 func setupDB() error {
-	// Source table — 2-day retention enforced by aggregator
+	// Source table — 2-day retention enforced by pruneRetention()
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS file_metadata (
 			id                           SERIAL PRIMARY KEY,
@@ -114,6 +111,7 @@ func setupDB() error {
 	if err != nil {
 		return fmt.Errorf("create file_metadata: %w", err)
 	}
+	// Migration guards — safe to run on a table that already has these columns.
 	for _, col := range []struct{ name, typ string }{
 		{"file_received_at", "TIMESTAMPTZ"},
 		{"first_analysis_complete_at", "TIMESTAMPTZ"},
@@ -220,9 +218,7 @@ func setupDB() error {
 	return nil
 }
 
-// ── Function 1: Aggregator ────────────────────────────────────────────────────
-// Reads new records from file_metadata, increments all stats tables,
-// recomputes lag from the live 2-day window, then prunes expired records.
+// ── Aggregator (Function 1) ───────────────────────────────────────────────────
 
 func runAggregation() {
 	if err := processNewFiles(); err != nil {
@@ -348,6 +344,7 @@ func processNewFiles() error {
 }
 
 func recomputeLag() error {
+	// Column names come from the hardcoded slice below, not from user input — fmt.Sprintf is safe here.
 	for _, l := range []struct{ name, a, b string }{
 		{"received_to_first_analysis", "first_analysis_complete_at", "file_received_at"},
 		{"received_to_second_analysis", "second_analysis_complete_at", "file_received_at"},
@@ -465,8 +462,7 @@ var lagStatsType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// ── Function 2: GraphQL API ───────────────────────────────────────────────────
-// All resolvers read exclusively from the stats tables.
+// ── GraphQL API (Function 2) ──────────────────────────────────────────────────
 
 func buildSchema() (graphql.Schema, error) {
 	query := graphql.NewObject(graphql.ObjectConfig{
@@ -525,7 +521,9 @@ func resolveFilesByCategory(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var cat string
 		var count int
-		rows.Scan(&cat, &count)
+		if err := rows.Scan(&cat, &count); err != nil {
+			return nil, err
+		}
 		out = append(out, map[string]interface{}{"category": cat, "count": count})
 	}
 	return out, nil
@@ -541,7 +539,9 @@ func resolveFilesByDirection(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var dir string
 		var count int
-		rows.Scan(&dir, &count)
+		if err := rows.Scan(&dir, &count); err != nil {
+			return nil, err
+		}
 		out = append(out, map[string]interface{}{"direction": dir, "count": count})
 	}
 	return out, nil
@@ -557,7 +557,9 @@ func resolveFilesByCustomerType(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var ct string
 		var count int
-		rows.Scan(&ct, &count)
+		if err := rows.Scan(&ct, &count); err != nil {
+			return nil, err
+		}
 		out = append(out, map[string]interface{}{"customerType": ct, "count": count})
 	}
 	return out, nil
@@ -607,7 +609,9 @@ func resolveLagStats(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var lagType string
 		var avg, min, max, p95 float64
-		rows.Scan(&lagType, &avg, &min, &max, &p95)
+		if err := rows.Scan(&lagType, &avg, &min, &max, &p95); err != nil {
+			return nil, err
+		}
 		out = append(out, map[string]interface{}{
 			"lagType": lagType, "avgSeconds": avg, "minSeconds": min, "maxSeconds": max, "p95Seconds": p95,
 		})
