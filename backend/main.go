@@ -14,6 +14,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type FileMetadata struct {
 	CustomerNumber string `json:"customer_number"`
 	CustomerType   string `json:"customer_type"`
@@ -30,6 +32,8 @@ type JSONData struct {
 }
 
 var db *sql.DB
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 func main() {
 	connStr := getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/file_dashboard?sslmode=disable")
@@ -57,6 +61,23 @@ func main() {
 		log.Fatalf("failed to setup database: %v", err)
 	}
 
+	// ── Function 1: Aggregator ─────────────────────────────────────────────
+	// Reads file_metadata as new entries arrive, updates all stats tables,
+	// and enforces the 2-day retention policy on file_metadata.
+	log.Println("aggregator: initial run...")
+	runAggregation()
+	log.Println("aggregator: ready")
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			runAggregation()
+		}
+	}()
+
+	// ── Function 2: GraphQL API ────────────────────────────────────────────
+	// Services all GraphQL queries exclusively from the stats tables.
 	schema, err := buildSchema()
 	if err != nil {
 		log.Fatalf("failed to build schema: %v", err)
@@ -65,79 +86,34 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/graphql", corsMiddleware(graphqlHandler(&schema)))
 
-	log.Println("backend listening on :8080  (GraphiQL at http://localhost:8080/graphql)")
+	log.Println("GraphQL API listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func graphqlHandler(schema *graphql.Schema) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var params struct {
-			Query         string                 `json:"query"`
-			OperationName string                 `json:"operationName"`
-			Variables     map[string]interface{} `json:"variables"`
-		}
-		if r.Method == http.MethodPost {
-			if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		} else {
-			params.Query = r.URL.Query().Get("query")
-		}
-		result := graphql.Do(graphql.Params{
-			Schema:         *schema,
-			RequestString:  params.Query,
-			VariableValues: params.Variables,
-			OperationName:  params.OperationName,
-		})
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-	})
-}
+// ── Database setup ─────────────────────────────────────────────────────────────
 
 func setupDB() error {
+	// Source table — 2-day retention enforced by aggregator
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS file_metadata (
-			id                         SERIAL PRIMARY KEY,
-			customer_number            VARCHAR(9),
-			customer_type              VARCHAR(10),
-			file_name                  VARCHAR(255),
-			file_category              VARCHAR(20),
-			file_creator               VARCHAR(6),
-			file_created_at            TIMESTAMPTZ,
-			disposal_time              VARCHAR(20),
-			direction                  VARCHAR(10),
-			file_received_at           TIMESTAMPTZ,
-			first_analysis_complete_at  TIMESTAMPTZ,
+			id                           SERIAL PRIMARY KEY,
+			customer_number              VARCHAR(9),
+			customer_type                VARCHAR(10),
+			file_name                    VARCHAR(255),
+			file_category                VARCHAR(20),
+			file_creator                 VARCHAR(6),
+			file_created_at              TIMESTAMPTZ,
+			disposal_time                VARCHAR(20),
+			direction                    VARCHAR(10),
+			file_received_at             TIMESTAMPTZ,
+			first_analysis_complete_at   TIMESTAMPTZ,
 			second_analysis_complete_at  TIMESTAMPTZ,
 			first_analysis_result        BOOLEAN
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("create table: %w", err)
+		return fmt.Errorf("create file_metadata: %w", err)
 	}
-
-	// Add new columns if upgrading an existing table
 	for _, col := range []struct{ name, typ string }{
 		{"file_received_at", "TIMESTAMPTZ"},
 		{"first_analysis_complete_at", "TIMESTAMPTZ"},
@@ -146,13 +122,71 @@ func setupDB() error {
 	} {
 		db.Exec(fmt.Sprintf("ALTER TABLE file_metadata ADD COLUMN IF NOT EXISTS %s %s", col.name, col.typ))
 	}
+
+	// Stats tables — persist beyond the 2-day retention window
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS stats_totals (
+			id          INT PRIMARY KEY DEFAULT 1,
+			total_files BIGINT DEFAULT 0,
+			last_id     BIGINT DEFAULT 0,
+			updated_at  TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`INSERT INTO stats_totals (id, total_files, last_id) VALUES (1,0,0) ON CONFLICT DO NOTHING`,
+		`CREATE TABLE IF NOT EXISTS stats_by_category (
+			file_category VARCHAR(20) PRIMARY KEY,
+			count         BIGINT DEFAULT 0,
+			updated_at    TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_by_direction (
+			direction  VARCHAR(10) PRIMARY KEY,
+			count      BIGINT DEFAULT 0,
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_by_customer_type (
+			customer_type VARCHAR(10) PRIMARY KEY,
+			count         BIGINT DEFAULT 0,
+			updated_at    TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_received_by_hour (
+			hour_bucket TIMESTAMPTZ PRIMARY KEY,
+			count       BIGINT DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_analysis_by_hour (
+			hour_bucket TIMESTAMPTZ,
+			result      BOOLEAN,
+			count       BIGINT DEFAULT 0,
+			PRIMARY KEY (hour_bucket, result)
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_lag (
+			lag_type    VARCHAR(50) PRIMARY KEY,
+			avg_seconds FLOAT DEFAULT 0,
+			min_seconds FLOAT DEFAULT 0,
+			max_seconds FLOAT DEFAULT 0,
+			p95_seconds FLOAT DEFAULT 0,
+			updated_at  TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS stats_disposal_tracking (
+			file_id         BIGINT PRIMARY KEY,
+			file_name       VARCHAR(255),
+			customer_number VARCHAR(9),
+			file_creator    VARCHAR(6),
+			file_created_at TIMESTAMPTZ,
+			disposal_time   VARCHAR(20),
+			disposal_date   TIMESTAMPTZ
+		)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("setup stats table: %w", err)
+		}
+	}
+
+	// Seed file_metadata if empty
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM file_metadata").Scan(&count)
 	if count > 0 {
-		log.Printf("database already seeded (%d rows)", count)
+		log.Printf("file_metadata already has %d rows", count)
 		return nil
 	}
-
 	jsonPath := getEnv("JSON_DATA_PATH", "file_metadata_1000.json")
 	raw, err := os.ReadFile(jsonPath)
 	if err != nil {
@@ -162,56 +196,166 @@ func setupDB() error {
 	if err := json.Unmarshal(raw, &jd); err != nil {
 		return fmt.Errorf("parsing JSON: %w", err)
 	}
-
 	for _, r := range jd.Data {
 		analysisResult := rand.Float64() < 0.95
-		_, err := db.Exec(`
+		db.Exec(`
 			INSERT INTO file_metadata
-			  (customer_number,customer_type,file_name,file_category,file_creator,file_created_at,disposal_time,direction,first_analysis_result)
+			  (customer_number,customer_type,file_name,file_category,file_creator,
+			   file_created_at,disposal_time,direction,first_analysis_result)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		`, r.CustomerNumber, r.CustomerType, r.FileName, r.FileCategory,
 			r.FileCreator, r.FileCreatedAt, r.DisposalTime, r.Direction, analysisResult)
-		if err != nil {
-			return fmt.Errorf("inserting record: %w", err)
-		}
 	}
-	log.Printf("seeded %d records", len(jd.Data))
+	log.Printf("seeded %d records into file_metadata", len(jd.Data))
 	return nil
 }
 
-// ── GraphQL types ────────────────────────────────────────────────────────────
+// ── Function 1: Aggregator ────────────────────────────────────────────────────
+// Reads new records from file_metadata, increments all stats tables,
+// recomputes lag from the live 2-day window, then prunes expired records.
 
-var timelineEntryType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "TimelineEntry",
-	Fields: graphql.Fields{
-		"period": &graphql.Field{Type: graphql.String},
-		"count":  &graphql.Field{Type: graphql.Int},
-	},
-})
+func runAggregation() {
+	if err := processNewFiles(); err != nil {
+		log.Printf("aggregator: processNewFiles: %v", err)
+	}
+	if err := recomputeLag(); err != nil {
+		log.Printf("aggregator: recomputeLag: %v", err)
+	}
+	if err := pruneRetention(); err != nil {
+		log.Printf("aggregator: pruneRetention: %v", err)
+	}
+}
 
-var creatorCountType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "CreatorCount",
-	Fields: graphql.Fields{
-		"creator": &graphql.Field{Type: graphql.String},
-		"count":   &graphql.Field{Type: graphql.Int},
-	},
-})
+func processNewFiles() error {
+	var lastID int64
+	db.QueryRow("SELECT last_id FROM stats_totals WHERE id = 1").Scan(&lastID)
 
-var customerCountType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "CustomerCount",
-	Fields: graphql.Fields{
-		"customerNumber": &graphql.Field{Type: graphql.String},
-		"count":          &graphql.Field{Type: graphql.Int},
-	},
-})
+	rows, err := db.Query(`
+		SELECT id,
+		       file_category, direction, customer_type,
+		       first_analysis_result,
+		       first_analysis_complete_at,
+		       COALESCE(file_received_at, file_created_at),
+		       file_name, customer_number, file_creator,
+		       file_created_at, disposal_time
+		FROM file_metadata
+		WHERE id > $1
+		ORDER BY id
+	`, lastID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 
-var disposalBucketType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "DisposalBucket",
-	Fields: graphql.Fields{
-		"year":  &graphql.Field{Type: graphql.String},
-		"count": &graphql.Field{Type: graphql.Int},
-	},
-})
+	var newLastID = lastID
+	var totalNew int64
+
+	for rows.Next() {
+		var id int64
+		var fileCategory, direction, customerType, fileName, customerNumber, fileCreator, disposalTime string
+		var firstAnalysisResult sql.NullBool
+		var firstAnalysisCompleteAt sql.NullTime
+		var fileReceivedAt, fileCreatedAt time.Time
+
+		if err := rows.Scan(
+			&id, &fileCategory, &direction, &customerType,
+			&firstAnalysisResult, &firstAnalysisCompleteAt, &fileReceivedAt,
+			&fileName, &customerNumber, &fileCreator, &fileCreatedAt, &disposalTime,
+		); err != nil {
+			return err
+		}
+
+		hourBucket := fileReceivedAt.UTC().Truncate(time.Hour)
+
+		db.Exec(`INSERT INTO stats_by_category (file_category,count,updated_at) VALUES ($1,1,NOW())
+		         ON CONFLICT (file_category) DO UPDATE SET count=stats_by_category.count+1, updated_at=NOW()`, fileCategory)
+
+		db.Exec(`INSERT INTO stats_by_direction (direction,count,updated_at) VALUES ($1,1,NOW())
+		         ON CONFLICT (direction) DO UPDATE SET count=stats_by_direction.count+1, updated_at=NOW()`, direction)
+
+		db.Exec(`INSERT INTO stats_by_customer_type (customer_type,count,updated_at) VALUES ($1,1,NOW())
+		         ON CONFLICT (customer_type) DO UPDATE SET count=stats_by_customer_type.count+1, updated_at=NOW()`, customerType)
+
+		db.Exec(`INSERT INTO stats_received_by_hour (hour_bucket,count) VALUES ($1,1)
+		         ON CONFLICT (hour_bucket) DO UPDATE SET count=stats_received_by_hour.count+1`, hourBucket)
+
+		if firstAnalysisResult.Valid && firstAnalysisCompleteAt.Valid {
+			analysisBucket := firstAnalysisCompleteAt.Time.UTC().Truncate(time.Hour)
+			db.Exec(`INSERT INTO stats_analysis_by_hour (hour_bucket,result,count) VALUES ($1,$2,1)
+			         ON CONFLICT (hour_bucket,result) DO UPDATE SET count=stats_analysis_by_hour.count+1`,
+				analysisBucket, firstAnalysisResult.Bool)
+		}
+
+		dd := disposalDateGo(fileCreatedAt, disposalTime)
+		db.Exec(`INSERT INTO stats_disposal_tracking
+		         (file_id,file_name,customer_number,file_creator,file_created_at,disposal_time,disposal_date)
+		         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (file_id) DO NOTHING`,
+			id, fileName, customerNumber, fileCreator, fileCreatedAt, disposalTime, dd)
+
+		newLastID = id
+		totalNew++
+	}
+
+	if totalNew > 0 {
+		db.Exec(`UPDATE stats_totals SET total_files=total_files+$1, last_id=$2, updated_at=NOW() WHERE id=1`,
+			totalNew, newLastID)
+		log.Printf("aggregator: processed %d new records (last_id=%d)", totalNew, newLastID)
+	}
+	return nil
+}
+
+func recomputeLag() error {
+	for _, l := range []struct{ name, a, b string }{
+		{"received_to_first_analysis", "first_analysis_complete_at", "file_received_at"},
+		{"received_to_second_analysis", "second_analysis_complete_at", "file_received_at"},
+	} {
+		_, err := db.Exec(fmt.Sprintf(`
+			INSERT INTO stats_lag (lag_type,avg_seconds,min_seconds,max_seconds,p95_seconds,updated_at)
+			SELECT $1,
+			    AVG(EXTRACT(EPOCH FROM (%s-%s))),
+			    MIN(EXTRACT(EPOCH FROM (%s-%s))),
+			    MAX(EXTRACT(EPOCH FROM (%s-%s))),
+			    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (%s-%s))),
+			    NOW()
+			FROM file_metadata WHERE %s IS NOT NULL AND %s IS NOT NULL
+			ON CONFLICT (lag_type) DO UPDATE SET
+			    avg_seconds=EXCLUDED.avg_seconds, min_seconds=EXCLUDED.min_seconds,
+			    max_seconds=EXCLUDED.max_seconds, p95_seconds=EXCLUDED.p95_seconds,
+			    updated_at=NOW()
+		`, l.a, l.b, l.a, l.b, l.a, l.b, l.a, l.b, l.a, l.b), l.name)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pruneRetention() error {
+	res, err := db.Exec(`DELETE FROM file_metadata WHERE file_received_at < NOW() - INTERVAL '2 days'`)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		log.Printf("aggregator: pruned %d records from file_metadata (retention: 2 days)", n)
+	}
+	return nil
+}
+
+func disposalDateGo(createdAt time.Time, dt string) time.Time {
+	switch dt {
+	case "6 months":
+		return createdAt.AddDate(0, 6, 0)
+	case "2 years":
+		return createdAt.AddDate(2, 0, 0)
+	case "7 years":
+		return createdAt.AddDate(7, 0, 0)
+	case "45 years":
+		return createdAt.AddDate(45, 0, 0)
+	}
+	return createdAt
+}
+
+// ── GraphQL types ─────────────────────────────────────────────────────────────
 
 var overdueFileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "OverdueFile",
@@ -234,14 +378,6 @@ var categoryCountType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-var customerTypeCountType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "CustomerTypeCount",
-	Fields: graphql.Fields{
-		"customerType": &graphql.Field{Type: graphql.String},
-		"count":        &graphql.Field{Type: graphql.Int},
-	},
-})
-
 var directionCountType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "DirectionCount",
 	Fields: graphql.Fields{
@@ -250,12 +386,11 @@ var directionCountType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-var customerCreatorType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "CustomerCreatorRelation",
+var customerTypeCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "CustomerTypeCount",
 	Fields: graphql.Fields{
-		"customerNumber": &graphql.Field{Type: graphql.String},
-		"fileCreator":    &graphql.Field{Type: graphql.String},
-		"count":          &graphql.Field{Type: graphql.Int},
+		"customerType": &graphql.Field{Type: graphql.String},
+		"count":        &graphql.Field{Type: graphql.Int},
 	},
 })
 
@@ -289,202 +424,36 @@ var lagStatsType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-var lagOutlierType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "LagOutlier",
-	Fields: graphql.Fields{
-		"fileName":       &graphql.Field{Type: graphql.String},
-		"customerNumber": &graphql.Field{Type: graphql.String},
-		"fileCreator":    &graphql.Field{Type: graphql.String},
-		"lagType":        &graphql.Field{Type: graphql.String},
-		"lagSeconds":     &graphql.Field{Type: graphql.Float},
-		"zScore":         &graphql.Field{Type: graphql.Float},
-	},
-})
-
-// ── Schema ───────────────────────────────────────────────────────────────────
+// ── Function 2: GraphQL API ───────────────────────────────────────────────────
+// All resolvers read exclusively from the stats tables.
 
 func buildSchema() (graphql.Schema, error) {
 	query := graphql.NewObject(graphql.ObjectConfig{
 		Name: "Query",
 		Fields: graphql.Fields{
-			"filesTimeline": {
-				Type:    graphql.NewList(timelineEntryType),
-				Resolve: resolveFilesTimeline,
-			},
-			"filesByCreator": {
-				Type:    graphql.NewList(creatorCountType),
-				Resolve: resolveFilesByCreator,
-			},
-			"filesByCustomer": {
-				Type:    graphql.NewList(customerCountType),
-				Resolve: resolveFilesByCustomer,
-			},
-			"disposalTimeline": {
-				Type:    graphql.NewList(disposalBucketType),
-				Resolve: resolveDisposalTimeline,
-			},
-			"overdueFiles": {
-				Type:    graphql.NewList(overdueFileType),
-				Resolve: resolveOverdueFiles,
-			},
-			"filesByCategory": {
-				Type:    graphql.NewList(categoryCountType),
-				Resolve: resolveFilesByCategory,
-			},
-			"filesByCustomerType": {
-				Type:    graphql.NewList(customerTypeCountType),
-				Resolve: resolveFilesByCustomerType,
-			},
-			"filesByDirection": {
-				Type:    graphql.NewList(directionCountType),
-				Resolve: resolveFilesByDirection,
-			},
-			"customerCreatorRelation": {
-				Type:    graphql.NewList(customerCreatorType),
-				Resolve: resolveCustomerCreatorRelation,
-			},
-			"recentFileCounts": {
-				Type:    recentCountsType,
-				Resolve: resolveRecentFileCounts,
-			},
-			"firstAnalysisResult": {
-				Type:    analysisResultType,
-				Resolve: resolveFirstAnalysisResult,
-			},
-			"lagStats": {
-				Type:    graphql.NewList(lagStatsType),
-				Resolve: resolveLagStats,
-			},
-			"lagOutliers": {
-				Type:    graphql.NewList(lagOutlierType),
-				Resolve: resolveLagOutliers,
-			},
+			"overdueFiles":        {Type: graphql.NewList(overdueFileType), Resolve: resolveOverdueFiles},
+			"filesByCategory":     {Type: graphql.NewList(categoryCountType), Resolve: resolveFilesByCategory},
+			"filesByDirection":    {Type: graphql.NewList(directionCountType), Resolve: resolveFilesByDirection},
+			"filesByCustomerType": {Type: graphql.NewList(customerTypeCountType), Resolve: resolveFilesByCustomerType},
+			"recentFileCounts":    {Type: recentCountsType, Resolve: resolveRecentFileCounts},
+			"firstAnalysisResult": {Type: analysisResultType, Resolve: resolveFirstAnalysisResult},
+			"lagStats":            {Type: graphql.NewList(lagStatsType), Resolve: resolveLagStats},
 		},
 	})
 	return graphql.NewSchema(graphql.SchemaConfig{Query: query})
 }
 
-// ── Resolvers ────────────────────────────────────────────────────────────────
-
-func resolveFilesTimeline(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT TO_CHAR(file_created_at,'YYYY-MM') AS period, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY period
-		ORDER BY period
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var period string
-		var count int
-		if err := rows.Scan(&period, &count); err != nil {
-			return nil, err
-		}
-		out = append(out, map[string]interface{}{"period": period, "count": count})
-	}
-	return out, nil
-}
-
-func resolveFilesByCreator(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT file_creator, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY file_creator
-		ORDER BY count ASC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var creator string
-		var count int
-		if err := rows.Scan(&creator, &count); err != nil {
-			return nil, err
-		}
-		out = append(out, map[string]interface{}{"creator": creator, "count": count})
-	}
-	return out, nil
-}
-
-func resolveFilesByCustomer(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT customer_number, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY customer_number
-		ORDER BY count ASC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var cn string
-		var count int
-		if err := rows.Scan(&cn, &count); err != nil {
-			return nil, err
-		}
-		out = append(out, map[string]interface{}{"customerNumber": cn, "count": count})
-	}
-	return out, nil
-}
-
-func disposalExpr() string {
-	return `
-		CASE
-			WHEN disposal_time = '6 months' THEN file_created_at + INTERVAL '6 months'
-			WHEN disposal_time = '2 years'  THEN file_created_at + INTERVAL '2 years'
-			WHEN disposal_time = '7 years'  THEN file_created_at + INTERVAL '7 years'
-			WHEN disposal_time = '45 years' THEN file_created_at + INTERVAL '45 years'
-		END`
-}
-
-func resolveDisposalTimeline(p graphql.ResolveParams) (interface{}, error) {
-	q := fmt.Sprintf(`
-		SELECT TO_CHAR(%s,'YYYY') AS yr, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY yr
-		ORDER BY yr
-	`, disposalExpr())
-	rows, err := db.Query(q)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var yr string
-		var count int
-		if err := rows.Scan(&yr, &count); err != nil {
-			return nil, err
-		}
-		out = append(out, map[string]interface{}{"year": yr, "count": count})
-	}
-	return out, nil
-}
-
 func resolveOverdueFiles(p graphql.ResolveParams) (interface{}, error) {
-	expr := disposalExpr()
-	q := fmt.Sprintf(`
-		SELECT
-			file_name,
-			customer_number,
-			file_creator,
-			TO_CHAR(file_created_at,'YYYY-MM-DD') AS created,
-			disposal_time,
-			TO_CHAR(%s,'YYYY-MM-DD')              AS disposal_date,
-			(EXTRACT(DAY FROM NOW() - %s))::int   AS days_overdue
-		FROM file_metadata
-		WHERE %s < NOW()
-		ORDER BY days_overdue DESC
-	`, expr, expr, expr)
-	rows, err := db.Query(q)
+	rows, err := db.Query(`
+		SELECT file_name, customer_number, file_creator,
+		       TO_CHAR(file_created_at,'YYYY-MM-DD'),
+		       disposal_time,
+		       TO_CHAR(disposal_date,'YYYY-MM-DD'),
+		       (EXTRACT(DAY FROM NOW() - disposal_date))::int
+		FROM stats_disposal_tracking
+		WHERE disposal_date < NOW()
+		ORDER BY disposal_date ASC
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -497,25 +466,15 @@ func resolveOverdueFiles(p graphql.ResolveParams) (interface{}, error) {
 			return nil, err
 		}
 		out = append(out, map[string]interface{}{
-			"fileName":       fn,
-			"customerNumber": cn,
-			"fileCreator":    fc,
-			"fileCreatedAt":  created,
-			"disposalTime":   dt,
-			"disposalDate":   dd,
-			"daysOverdue":    daysOverdue,
+			"fileName": fn, "customerNumber": cn, "fileCreator": fc,
+			"fileCreatedAt": created, "disposalTime": dt, "disposalDate": dd, "daysOverdue": daysOverdue,
 		})
 	}
 	return out, nil
 }
 
 func resolveFilesByCategory(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT file_category, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY file_category
-		ORDER BY count DESC
-	`)
+	rows, err := db.Query(`SELECT file_category, count::int FROM stats_by_category ORDER BY count DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -524,44 +483,14 @@ func resolveFilesByCategory(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var cat string
 		var count int
-		if err := rows.Scan(&cat, &count); err != nil {
-			return nil, err
-		}
+		rows.Scan(&cat, &count)
 		out = append(out, map[string]interface{}{"category": cat, "count": count})
 	}
 	return out, nil
 }
 
-func resolveFilesByCustomerType(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT customer_type, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY customer_type
-		ORDER BY count DESC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var ct string
-		var count int
-		if err := rows.Scan(&ct, &count); err != nil {
-			return nil, err
-		}
-		out = append(out, map[string]interface{}{"customerType": ct, "count": count})
-	}
-	return out, nil
-}
-
 func resolveFilesByDirection(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT direction, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY direction
-		ORDER BY count DESC
-	`)
+	rows, err := db.Query(`SELECT direction, count::int FROM stats_by_direction ORDER BY count DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -570,10 +499,24 @@ func resolveFilesByDirection(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var dir string
 		var count int
-		if err := rows.Scan(&dir, &count); err != nil {
-			return nil, err
-		}
+		rows.Scan(&dir, &count)
 		out = append(out, map[string]interface{}{"direction": dir, "count": count})
+	}
+	return out, nil
+}
+
+func resolveFilesByCustomerType(p graphql.ResolveParams) (interface{}, error) {
+	rows, err := db.Query(`SELECT customer_type, count::int FROM stats_by_customer_type ORDER BY count DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]interface{}
+	for rows.Next() {
+		var ct string
+		var count int
+		rows.Scan(&ct, &count)
+		out = append(out, map[string]interface{}{"customerType": ct, "count": count})
 	}
 	return out, nil
 }
@@ -582,68 +525,38 @@ func resolveRecentFileCounts(p graphql.ResolveParams) (interface{}, error) {
 	var thisHour, thisWeek, thisYear int
 	err := db.QueryRow(`
 		SELECT
-			COUNT(*) FILTER (WHERE file_received_at >= NOW() - INTERVAL '1 hour')   AS this_hour,
-			COUNT(*) FILTER (WHERE file_received_at >= DATE_TRUNC('week',  NOW()))   AS this_week,
-			COUNT(*) FILTER (WHERE file_received_at >= DATE_TRUNC('year',  NOW()))   AS this_year
-		FROM file_metadata
+		    COALESCE(SUM(count) FILTER (WHERE hour_bucket >= DATE_TRUNC('hour', NOW())), 0),
+		    COALESCE(SUM(count) FILTER (WHERE hour_bucket >= DATE_TRUNC('week', NOW())), 0),
+		    COALESCE(SUM(count) FILTER (WHERE hour_bucket >= DATE_TRUNC('year', NOW())), 0)
+		FROM stats_received_by_hour
 	`).Scan(&thisHour, &thisWeek, &thisYear)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
-		"thisHour": thisHour,
-		"thisWeek": thisWeek,
-		"thisYear": thisYear,
-	}, nil
+	return map[string]interface{}{"thisHour": thisHour, "thisWeek": thisWeek, "thisYear": thisYear}, nil
 }
 
 func resolveFirstAnalysisResult(p graphql.ResolveParams) (interface{}, error) {
 	var passedWeek, passedYear, failedWeek, failedYear int
 	err := db.QueryRow(`
 		SELECT
-			COUNT(*) FILTER (WHERE first_analysis_result = true  AND first_analysis_complete_at >= DATE_TRUNC('week', NOW())) AS passed_week,
-			COUNT(*) FILTER (WHERE first_analysis_result = true  AND first_analysis_complete_at >= DATE_TRUNC('year', NOW())) AS passed_year,
-			COUNT(*) FILTER (WHERE first_analysis_result = false AND first_analysis_complete_at >= DATE_TRUNC('week', NOW())) AS failed_week,
-			COUNT(*) FILTER (WHERE first_analysis_result = false AND first_analysis_complete_at >= DATE_TRUNC('year', NOW())) AS failed_year
-		FROM file_metadata
-		WHERE first_analysis_result IS NOT NULL
+		    COALESCE(SUM(count) FILTER (WHERE result=true  AND hour_bucket >= DATE_TRUNC('week', NOW())), 0),
+		    COALESCE(SUM(count) FILTER (WHERE result=true  AND hour_bucket >= DATE_TRUNC('year', NOW())), 0),
+		    COALESCE(SUM(count) FILTER (WHERE result=false AND hour_bucket >= DATE_TRUNC('week', NOW())), 0),
+		    COALESCE(SUM(count) FILTER (WHERE result=false AND hour_bucket >= DATE_TRUNC('year', NOW())), 0)
+		FROM stats_analysis_by_hour
 	`).Scan(&passedWeek, &passedYear, &failedWeek, &failedYear)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{
-		"passedThisWeek": passedWeek,
-		"passedThisYear": passedYear,
-		"failedThisWeek": failedWeek,
-		"failedThisYear": failedYear,
+		"passedThisWeek": passedWeek, "passedThisYear": passedYear,
+		"failedThisWeek": failedWeek, "failedThisYear": failedYear,
 	}, nil
 }
 
 func resolveLagStats(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT lag_type, avg_s, min_s, max_s, p95_s FROM (
-			SELECT 'created_to_received' AS lag_type,
-				AVG(EXTRACT(EPOCH FROM (file_received_at - file_created_at)))                                                       AS avg_s,
-				MIN(EXTRACT(EPOCH FROM (file_received_at - file_created_at)))                                                       AS min_s,
-				MAX(EXTRACT(EPOCH FROM (file_received_at - file_created_at)))                                                       AS max_s,
-				PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (file_received_at - file_created_at)))              AS p95_s
-			FROM file_metadata WHERE file_received_at IS NOT NULL
-			UNION ALL
-			SELECT 'received_to_first_analysis',
-				AVG(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at))),
-				MIN(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at))),
-				MAX(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at))),
-				PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at)))
-			FROM file_metadata WHERE first_analysis_complete_at IS NOT NULL
-			UNION ALL
-			SELECT 'received_to_second_analysis',
-				AVG(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at))),
-				MIN(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at))),
-				MAX(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at))),
-				PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at)))
-			FROM file_metadata WHERE second_analysis_complete_at IS NOT NULL
-		) t
-	`)
+	rows, err := db.Query(`SELECT lag_type, avg_seconds, min_seconds, max_seconds, p95_seconds FROM stats_lag`)
 	if err != nil {
 		return nil, err
 	}
@@ -652,103 +565,58 @@ func resolveLagStats(p graphql.ResolveParams) (interface{}, error) {
 	for rows.Next() {
 		var lagType string
 		var avg, min, max, p95 float64
-		if err := rows.Scan(&lagType, &avg, &min, &max, &p95); err != nil {
-			return nil, err
-		}
+		rows.Scan(&lagType, &avg, &min, &max, &p95)
 		out = append(out, map[string]interface{}{
-			"lagType":    lagType,
-			"avgSeconds": avg,
-			"minSeconds": min,
-			"maxSeconds": max,
-			"p95Seconds": p95,
+			"lagType": lagType, "avgSeconds": avg, "minSeconds": min, "maxSeconds": max, "p95Seconds": p95,
 		})
 	}
 	return out, nil
 }
 
-func resolveLagOutliers(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		WITH stats AS (
-			SELECT
-				AVG(EXTRACT(EPOCH FROM (file_received_at - file_created_at)))            AS avg_c2r,
-				STDDEV(EXTRACT(EPOCH FROM (file_received_at - file_created_at)))         AS std_c2r,
-				AVG(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at))) AS avg_r2f,
-				STDDEV(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at))) AS std_r2f,
-				AVG(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at))) AS avg_r2s,
-				STDDEV(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at))) AS std_r2s
-			FROM file_metadata WHERE file_received_at IS NOT NULL
-		),
-		outliers AS (
-			SELECT file_name, customer_number, file_creator,
-				'created_to_received' AS lag_type,
-				EXTRACT(EPOCH FROM (file_received_at - file_created_at)) AS lag_seconds,
-				(EXTRACT(EPOCH FROM (file_received_at - file_created_at)) - avg_c2r) / NULLIF(std_c2r, 0) AS z_score
-			FROM file_metadata, stats
-			WHERE file_received_at IS NOT NULL
-			AND ABS((EXTRACT(EPOCH FROM (file_received_at - file_created_at)) - avg_c2r) / NULLIF(std_c2r, 0)) > 2
-			UNION ALL
-			SELECT file_name, customer_number, file_creator,
-				'received_to_first_analysis',
-				EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at)),
-				(EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at)) - avg_r2f) / NULLIF(std_r2f, 0)
-			FROM file_metadata, stats
-			WHERE first_analysis_complete_at IS NOT NULL
-			AND ABS((EXTRACT(EPOCH FROM (first_analysis_complete_at - file_received_at)) - avg_r2f) / NULLIF(std_r2f, 0)) > 2
-			UNION ALL
-			SELECT file_name, customer_number, file_creator,
-				'received_to_second_analysis',
-				EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at)),
-				(EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at)) - avg_r2s) / NULLIF(std_r2s, 0)
-			FROM file_metadata, stats
-			WHERE second_analysis_complete_at IS NOT NULL
-			AND ABS((EXTRACT(EPOCH FROM (second_analysis_complete_at - file_received_at)) - avg_r2s) / NULLIF(std_r2s, 0)) > 2
-		)
-		SELECT file_name, customer_number, file_creator, lag_type, lag_seconds, z_score
-		FROM outliers
-		ORDER BY ABS(z_score) DESC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var fileName, customerNumber, fileCreator, lagType string
-		var lagSeconds, zScore float64
-		if err := rows.Scan(&fileName, &customerNumber, &fileCreator, &lagType, &lagSeconds, &zScore); err != nil {
-			return nil, err
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
-		out = append(out, map[string]interface{}{
-			"fileName":       fileName,
-			"customerNumber": customerNumber,
-			"fileCreator":    fileCreator,
-			"lagType":        lagType,
-			"lagSeconds":     lagSeconds,
-			"zScore":         zScore,
-		})
-	}
-	return out, nil
+		next.ServeHTTP(w, r)
+	})
 }
 
-func resolveCustomerCreatorRelation(p graphql.ResolveParams) (interface{}, error) {
-	rows, err := db.Query(`
-		SELECT customer_number, file_creator, COUNT(*)::int AS count
-		FROM file_metadata
-		GROUP BY customer_number, file_creator
-		ORDER BY customer_number, file_creator
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []map[string]interface{}
-	for rows.Next() {
-		var cn, fc string
-		var count int
-		if err := rows.Scan(&cn, &fc, &count); err != nil {
-			return nil, err
+func graphqlHandler(schema *graphql.Schema) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var params struct {
+			Query         string                 `json:"query"`
+			OperationName string                 `json:"operationName"`
+			Variables     map[string]interface{} `json:"variables"`
 		}
-		out = append(out, map[string]interface{}{"customerNumber": cn, "fileCreator": fc, "count": count})
+		if r.Method == http.MethodPost {
+			if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else {
+			params.Query = r.URL.Query().Get("query")
+		}
+		result := graphql.Do(graphql.Params{
+			Schema:        *schema,
+			RequestString: params.Query,
+			VariableValues: params.Variables,
+			OperationName: params.OperationName,
+		})
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	})
+}
+
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return out, nil
+	return def
 }
