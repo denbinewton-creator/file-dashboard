@@ -1,19 +1,5 @@
 import React from 'react'
 
-const DATA_MODEL = {
-  customer_number:             { type: 'string',      constraint: '9 digits' },
-  customer_type:               { type: 'string',      constraint: 'type_1 | type_2 | type_3' },
-  file_name:                   { type: 'string',      constraint: 'min 2 words · .pdf .jpeg .docx .xlsx' },
-  file_category:               { type: 'string',      constraint: 'letter | photo | receipt | spreadsheet' },
-  file_creator:                { type: 'string',      constraint: '6-digit number' },
-  file_created_at:             { type: 'timestamptz', constraint: 'ISO 8601 Zulu' },
-  disposal_time:               { type: 'string',      constraint: '6 months | 2 years | 7 years | 45 years' },
-  direction:                   { type: 'string',      constraint: 'inbound | outbound' },
-  file_received_at:            { type: 'timestamptz', constraint: 'file_created_at + 5min to 3 months' },
-  first_analysis_complete_at:  { type: 'timestamptz', constraint: 'file_received_at + 0.5s to 5s' },
-  second_analysis_complete_at: { type: 'timestamptz', constraint: 'file_received_at + 15s to 3min' },
-  first_analysis_result:       { type: 'boolean',     constraint: 'PASSED (95%) | FAILED (5%)' },
-}
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
 
@@ -247,31 +233,6 @@ export default function About() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
             {STATS_TABLES.map(t => <SchemaTable key={t.title} {...t} />)}
           </div>
-        </div>
-      </div>
-
-      {/* ── Data Model ── */}
-      <div className="chart-card">
-        <h2><span className="dot" style={{ background: 'var(--accent)' }} />Data Model — file_metadata</h2>
-        <div style={{
-          background: '#0b0d12', border: '1px solid #252a38', borderRadius: 8,
-          padding: '20px 24px', ...mono, fontSize: 12, lineHeight: 1.8, overflowX: 'auto',
-        }}>
-          <div style={{ color: '#56607a', marginBottom: 8 }}>{'{'}</div>
-          {Object.entries(DATA_MODEL).map(([field, meta]) => (
-            <div key={field} style={{ display: 'flex', gap: 8, paddingLeft: 24, flexWrap: 'wrap' }}>
-              <span style={{ color: '#4f8ef5' }}>"{field}"</span>
-              <span style={{ color: '#56607a' }}>:</span>
-              <span style={{ color: '#56607a' }}>{'{'}</span>
-              <span style={{ color: '#56607a' }}>type:</span>
-              <span style={{ color: '#3de89b' }}>"{meta.type}"</span>
-              <span style={{ color: '#56607a' }}>,</span>
-              <span style={{ color: '#56607a' }}>constraint:</span>
-              <span style={{ color: '#f5c542' }}>"{meta.constraint}"</span>
-              <span style={{ color: '#56607a' }}>{'},'}</span>
-            </div>
-          ))}
-          <div style={{ color: '#56607a', marginTop: 8 }}>{'}'}</div>
         </div>
       </div>
 
