@@ -4,9 +4,7 @@ import { useQuery, gql } from '@apollo/client'
 const Q = gql`
   query {
     overdueFiles {
-      fileName
-      customerNumber
-      fileCreator
+      fileId
       fileCreatedAt
       disposalTime
       disposalDate
@@ -37,9 +35,7 @@ export default function OverdueFilesTable() {
         <table>
           <thead>
             <tr>
-              <th>File Name</th>
-              <th>Customer</th>
-              <th>Creator</th>
+              <th>ID</th>
               <th>Created</th>
               <th>Retention</th>
               <th>Disposal Date</th>
@@ -49,9 +45,7 @@ export default function OverdueFilesTable() {
           <tbody>
             {slice.map((f, i) => (
               <tr key={i}>
-                <td>{f.fileName}</td>
-                <td>{f.customerNumber}</td>
-                <td>{f.fileCreator}</td>
+                <td>{f.fileId}</td>
                 <td>{f.fileCreatedAt}</td>
                 <td>{f.disposalTime}</td>
                 <td>{f.disposalDate}</td>

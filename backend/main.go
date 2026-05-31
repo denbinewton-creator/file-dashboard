@@ -365,13 +365,11 @@ func disposalDateGo(createdAt time.Time, dt string) time.Time {
 var overdueFileType = graphql.NewObject(graphql.ObjectConfig{
 	Name: "OverdueFile",
 	Fields: graphql.Fields{
-		"fileName":       &graphql.Field{Type: graphql.String},
-		"customerNumber": &graphql.Field{Type: graphql.String},
-		"fileCreator":    &graphql.Field{Type: graphql.String},
-		"fileCreatedAt":  &graphql.Field{Type: graphql.String},
-		"disposalTime":   &graphql.Field{Type: graphql.String},
-		"disposalDate":   &graphql.Field{Type: graphql.String},
-		"daysOverdue":    &graphql.Field{Type: graphql.Int},
+		"fileId":        &graphql.Field{Type: graphql.Int},
+		"fileCreatedAt": &graphql.Field{Type: graphql.String},
+		"disposalTime":  &graphql.Field{Type: graphql.String},
+		"disposalDate":  &graphql.Field{Type: graphql.String},
+		"daysOverdue":   &graphql.Field{Type: graphql.Int},
 	},
 })
 
@@ -450,7 +448,7 @@ func buildSchema() (graphql.Schema, error) {
 
 func resolveOverdueFiles(p graphql.ResolveParams) (interface{}, error) {
 	rows, err := db.Query(`
-		SELECT file_name, customer_number, file_creator,
+		SELECT file_id,
 		       TO_CHAR(file_created_at,'YYYY-MM-DD'),
 		       disposal_time,
 		       TO_CHAR(disposal_date,'YYYY-MM-DD'),
@@ -465,14 +463,15 @@ func resolveOverdueFiles(p graphql.ResolveParams) (interface{}, error) {
 	defer rows.Close()
 	var out []map[string]interface{}
 	for rows.Next() {
-		var fn, cn, fc, created, dt, dd string
+		var fileID int64
+		var created, dt, dd string
 		var daysOverdue int
-		if err := rows.Scan(&fn, &cn, &fc, &created, &dt, &dd, &daysOverdue); err != nil {
+		if err := rows.Scan(&fileID, &created, &dt, &dd, &daysOverdue); err != nil {
 			return nil, err
 		}
 		out = append(out, map[string]interface{}{
-			"fileName": fn, "customerNumber": cn, "fileCreator": fc,
-			"fileCreatedAt": created, "disposalTime": dt, "disposalDate": dd, "daysOverdue": daysOverdue,
+			"fileId": fileID, "fileCreatedAt": created,
+			"disposalTime": dt, "disposalDate": dd, "daysOverdue": daysOverdue,
 		})
 	}
 	return out, nil
