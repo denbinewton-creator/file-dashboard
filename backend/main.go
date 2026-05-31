@@ -62,13 +62,13 @@ func main() {
 	}
 
 	// ── Function 1: Aggregator ─────────────────────────────────────────────
-	// Reads file_metadata as new entries arrive, updates all stats tables,
-	// and enforces the 2-day retention policy on file_metadata.
-	log.Println("aggregator: initial run...")
-	runAggregation()
-	log.Println("aggregator: ready")
-
+	// Runs immediately in background so the HTTP server starts without waiting
+	// for the initial catch-up (which can take many 500-row batches).
 	go func() {
+		log.Println("aggregator: initial run...")
+		runAggregation()
+		log.Println("aggregator: initial run complete")
+
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
