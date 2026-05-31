@@ -150,7 +150,7 @@ export default function Synopsis() {
           <>{dim('  ')}{cmt('// Read all rows into memory before opening the transaction.')}</>,
           <>{dim('  ')}{cmt('// database/sql pool can assign different connections to *sql.Rows and *sql.Tx.')}</>,
           <>{dim('  ')}{cmt('// Mixing them causes a deadlock when the pool is exhausted.')}</>,
-          <>{dim('  ')}batch = {sql('SELECT')} ... {sql('WHERE')} id > lastID {sql('LIMIT')} {num('500')}</>,
+          <>{dim('  ')}batch = {sql('SELECT')} ... {sql('WHERE')} id {'>'} lastID {sql('LIMIT')} {num('500')}</>,
           <>{dim('  ')}rows.Close()</>,
           <></>,
           <>{dim('  ')}{kw('if')} len(batch) == {num('0')} {'{'} {kw('return')} {'}'}</>,
@@ -167,7 +167,7 @@ export default function Synopsis() {
           <>{dim('  ')}{sql('UPDATE')} stats_totals {sql('SET')} total_files += len(batch), last_id = newLastID</>,
           <>{dim('  ')}tx.Commit()</>,
           <></>,
-          <>{dim('  ')}{kw('if')} len(batch) < {num('500')} {'{'} {kw('return')} {'}'}{cmt('  // no more rows')}</>,
+          <>{dim('  ')}{kw('if')} len(batch) {'<'} {num('500')} {'{'} {kw('return')} {'}'}{cmt('  // no more rows')}</>,
           <>{'}'}</>,
         ]} />
 
@@ -230,9 +230,9 @@ export default function Synopsis() {
           <>{cmt('// Refetches every active query every 20 s to pick up BAU inserts.')}</>,
           <>{cmt('// include: "active" limits refetch to queries mounted in the current page —')}</>,
           <>{cmt('// switching to the About/Synopsis page stops unnecessary network calls.')}</>,
-          <>{typ('useEffect')}(() => {'{'}</>,
-          <>{dim('  ')}{kw('const')} id = {typ('setInterval')}(() => apollo.{kw('refetchQueries')}({'{'} include: {str('"active"')} {'}'}), {num('20000')})</>,
-          <>{dim('  ')}{kw('return')} () => {typ('clearInterval')}(id)</>,
+          <>{typ('useEffect')}(() {'=>'} {'{'}</>,
+          <>{dim('  ')}{kw('const')} id = {typ('setInterval')}(() {'=>'} apollo.{kw('refetchQueries')}({'{'} include: {str('"active"')} {'}'}), {num('20000')})</>,
+          <>{dim('  ')}{kw('return')} () {'=>'} {typ('clearInterval')}(id)</>,
           <>{'}'}, [apollo])</>,
         ]} />
 
