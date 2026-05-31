@@ -180,6 +180,16 @@ func setupDB() error {
 		}
 	}
 
+	// Reset stats tables if RESET_STATS env var is set.
+	// Use this once after any suspected double-counting incident, then unset it.
+	if os.Getenv("RESET_STATS") == "true" {
+		log.Println("RESET_STATS=true: truncating all stats tables and resetting last_id to 0")
+		db.Exec(`TRUNCATE stats_by_category, stats_by_direction, stats_by_customer_type,
+		                  stats_received_by_hour, stats_analysis_by_hour, stats_lag`)
+		db.Exec(`DELETE FROM stats_disposal_tracking`)
+		db.Exec(`UPDATE stats_totals SET total_files=0, last_id=0, updated_at=NOW() WHERE id=1`)
+	}
+
 	// Seed file_metadata if empty
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM file_metadata").Scan(&count)
@@ -226,6 +236,21 @@ func runAggregation() {
 	}
 }
 
+type fileRow struct {
+	id                     int64
+	fileCategory           string
+	direction              string
+	customerType           string
+	firstAnalysisResult    sql.NullBool
+	firstAnalysisCompleteAt sql.NullTime
+	fileReceivedAt         time.Time
+	fileCreatedAt          time.Time
+	fileName               string
+	customerNumber         string
+	fileCreator            string
+	disposalTime           string
+}
+
 func processNewFiles() error {
 	const batchSize = 500
 	for {
@@ -249,61 +274,74 @@ func processNewFiles() error {
 			return err
 		}
 
-		var newLastID = lastID
-		var totalNew int64
-
+		// Read all rows into memory before opening a transaction so the
+		// cursor and the transaction don't compete for the same connection.
+		var batch []fileRow
 		for rows.Next() {
-			var id int64
-			var fileCategory, direction, customerType, fileName, customerNumber, fileCreator, disposalTime string
-			var firstAnalysisResult sql.NullBool
-			var firstAnalysisCompleteAt sql.NullTime
-			var fileReceivedAt, fileCreatedAt time.Time
-
+			var r fileRow
 			if err := rows.Scan(
-				&id, &fileCategory, &direction, &customerType,
-				&firstAnalysisResult, &firstAnalysisCompleteAt, &fileReceivedAt,
-				&fileName, &customerNumber, &fileCreator, &fileCreatedAt, &disposalTime,
+				&r.id, &r.fileCategory, &r.direction, &r.customerType,
+				&r.firstAnalysisResult, &r.firstAnalysisCompleteAt, &r.fileReceivedAt,
+				&r.fileName, &r.customerNumber, &r.fileCreator, &r.fileCreatedAt, &r.disposalTime,
 			); err != nil {
 				rows.Close()
 				return err
 			}
-
-			hourBucket := fileReceivedAt.UTC().Truncate(time.Hour)
-
-			db.Exec(`INSERT INTO stats_by_category (file_category,count,updated_at) VALUES ($1,1,NOW())
-			         ON CONFLICT (file_category) DO UPDATE SET count=stats_by_category.count+1, updated_at=NOW()`, fileCategory)
-			db.Exec(`INSERT INTO stats_by_direction (direction,count,updated_at) VALUES ($1,1,NOW())
-			         ON CONFLICT (direction) DO UPDATE SET count=stats_by_direction.count+1, updated_at=NOW()`, direction)
-			db.Exec(`INSERT INTO stats_by_customer_type (customer_type,count,updated_at) VALUES ($1,1,NOW())
-			         ON CONFLICT (customer_type) DO UPDATE SET count=stats_by_customer_type.count+1, updated_at=NOW()`, customerType)
-			db.Exec(`INSERT INTO stats_received_by_hour (hour_bucket,count) VALUES ($1,1)
-			         ON CONFLICT (hour_bucket) DO UPDATE SET count=stats_received_by_hour.count+1`, hourBucket)
-
-			if firstAnalysisResult.Valid && firstAnalysisCompleteAt.Valid {
-				analysisBucket := firstAnalysisCompleteAt.Time.UTC().Truncate(time.Hour)
-				db.Exec(`INSERT INTO stats_analysis_by_hour (hour_bucket,result,count) VALUES ($1,$2,1)
-				         ON CONFLICT (hour_bucket,result) DO UPDATE SET count=stats_analysis_by_hour.count+1`,
-					analysisBucket, firstAnalysisResult.Bool)
-			}
-
-			dd := disposalDateGo(fileCreatedAt, disposalTime)
-			db.Exec(`INSERT INTO stats_disposal_tracking
-			         (file_id,file_name,customer_number,file_creator,file_created_at,disposal_time,disposal_date)
-			         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (file_id) DO NOTHING`,
-				id, fileName, customerNumber, fileCreator, fileCreatedAt, disposalTime, dd)
-
-			newLastID = id
-			totalNew++
+			batch = append(batch, r)
 		}
 		rows.Close()
 
-		if totalNew > 0 {
-			db.Exec(`UPDATE stats_totals SET total_files=total_files+$1, last_id=$2, updated_at=NOW() WHERE id=1`,
-				totalNew, newLastID)
-			log.Printf("aggregator: processed %d new records (last_id=%d)", totalNew, newLastID)
+		if len(batch) == 0 {
+			return nil
 		}
 
-		if totalNew < batchSize {
+		// Wrap the entire batch in one transaction so that a mid-batch crash
+		// leaves last_id unchanged and the batch is retried cleanly on restart.
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+
+		var newLastID int64
+		for _, r := range batch {
+			hourBucket := r.fileReceivedAt.UTC().Truncate(time.Hour)
+
+			tx.Exec(`INSERT INTO stats_by_category (file_category,count,updated_at) VALUES ($1,1,NOW())
+			         ON CONFLICT (file_category) DO UPDATE SET count=stats_by_category.count+1, updated_at=NOW()`, r.fileCategory)
+			tx.Exec(`INSERT INTO stats_by_direction (direction,count,updated_at) VALUES ($1,1,NOW())
+			         ON CONFLICT (direction) DO UPDATE SET count=stats_by_direction.count+1, updated_at=NOW()`, r.direction)
+			tx.Exec(`INSERT INTO stats_by_customer_type (customer_type,count,updated_at) VALUES ($1,1,NOW())
+			         ON CONFLICT (customer_type) DO UPDATE SET count=stats_by_customer_type.count+1, updated_at=NOW()`, r.customerType)
+			tx.Exec(`INSERT INTO stats_received_by_hour (hour_bucket,count) VALUES ($1,1)
+			         ON CONFLICT (hour_bucket) DO UPDATE SET count=stats_received_by_hour.count+1`, hourBucket)
+
+			if r.firstAnalysisResult.Valid && r.firstAnalysisCompleteAt.Valid {
+				analysisBucket := r.firstAnalysisCompleteAt.Time.UTC().Truncate(time.Hour)
+				tx.Exec(`INSERT INTO stats_analysis_by_hour (hour_bucket,result,count) VALUES ($1,$2,1)
+				         ON CONFLICT (hour_bucket,result) DO UPDATE SET count=stats_analysis_by_hour.count+1`,
+					analysisBucket, r.firstAnalysisResult.Bool)
+			}
+
+			dd := disposalDateGo(r.fileCreatedAt, r.disposalTime)
+			tx.Exec(`INSERT INTO stats_disposal_tracking
+			         (file_id,file_name,customer_number,file_creator,file_created_at,disposal_time,disposal_date)
+			         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (file_id) DO NOTHING`,
+				r.id, r.fileName, r.customerNumber, r.fileCreator, r.fileCreatedAt, r.disposalTime, dd)
+
+			newLastID = r.id
+		}
+
+		tx.Exec(`UPDATE stats_totals SET total_files=total_files+$1, last_id=$2, updated_at=NOW() WHERE id=1`,
+			int64(len(batch)), newLastID)
+
+		if err := tx.Commit(); err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		log.Printf("aggregator: processed %d new records (last_id=%d)", len(batch), newLastID)
+
+		if len(batch) < batchSize {
 			return nil
 		}
 	}
