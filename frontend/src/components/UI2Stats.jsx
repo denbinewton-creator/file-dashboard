@@ -15,7 +15,7 @@ const Q = gql`
 `
 
 const ENGINE_COLORS  = ['#3de89b', '#4f8ef5', '#a78bfa']
-const OUTCOME_COLORS = ['#3de89b', '#f5c542', '#f04f5a']
+const OUTCOME_COLORS = ['#3de89b', '#f04f5a', '#f5c542']
 const RISK_COLOR     = '#fb923c'
 
 const CustomTooltip = ({ active, payload }) => {
