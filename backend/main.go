@@ -526,6 +526,34 @@ var filesPerLodgementType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var outcomeCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "OutcomeCount",
+	Fields: graphql.Fields{
+		"outcome": &graphql.Field{Type: graphql.String},
+		"count":   &graphql.Field{Type: graphql.Int},
+	},
+})
+
+var riskScoreStatsType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "RiskScoreStats",
+	Fields: graphql.Fields{
+		"floor":   &graphql.Field{Type: graphql.Int},
+		"average": &graphql.Field{Type: graphql.Float},
+		"ceiling": &graphql.Field{Type: graphql.Int},
+	},
+})
+
+var ui2StatsType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "UI2Stats",
+	Fields: graphql.Fields{
+		"totalThisHour": &graphql.Field{Type: graphql.Int},
+		"totalAllTime":  &graphql.Field{Type: graphql.Int},
+		"byEngine":      &graphql.Field{Type: graphql.NewList(lodgementEngineCountType)},
+		"byOutcome":     &graphql.Field{Type: graphql.NewList(outcomeCountType)},
+		"riskScore":     &graphql.Field{Type: riskScoreStatsType},
+	},
+})
+
 // ── GraphQL API (Function 2) ──────────────────────────────────────────────────
 
 func buildSchema() (graphql.Schema, error) {
@@ -544,6 +572,7 @@ func buildSchema() (graphql.Schema, error) {
 			"lodgementsByStatus":  {Type: graphql.NewList(lodgementStatusCountType), Resolve: resolveLodgementsByStatus},
 			"lodgementsByIngress": {Type: graphql.NewList(lodgementIngressCountType), Resolve: resolveLodgementsByIngress},
 			"filesPerLodgement":   {Type: filesPerLodgementType, Resolve: resolveFilesPerLodgement},
+			"ui2Stats":            {Type: ui2StatsType, Resolve: resolveUI2Stats},
 		},
 	})
 	return graphql.NewSchema(graphql.SchemaConfig{Query: query})
@@ -686,6 +715,89 @@ func resolveLagStats(p graphql.ResolveParams) (interface{}, error) {
 		})
 	}
 	return out, nil
+}
+
+func resolveUI2Stats(p graphql.ResolveParams) (interface{}, error) {
+	const loc = "UI-2"
+
+	var totalThisHour, totalAllTime int
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM lodgement
+		WHERE ingress_location = $1
+		  AND submitted_at >= DATE_TRUNC('hour', NOW())
+	`, loc).Scan(&totalThisHour); err != nil {
+		return nil, err
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lodgement WHERE ingress_location = $1`, loc).Scan(&totalAllTime); err != nil {
+		return nil, err
+	}
+
+	engineRows, err := db.Query(`
+		SELECT processing_engine, COUNT(*)::int
+		FROM lodgement
+		WHERE ingress_location = $1
+		GROUP BY processing_engine
+		ORDER BY COUNT(*) DESC
+	`, loc)
+	if err != nil {
+		return nil, err
+	}
+	var byEngine []map[string]interface{}
+	for engineRows.Next() {
+		var engine string
+		var count int
+		if err := engineRows.Scan(&engine, &count); err != nil {
+			engineRows.Close()
+			return nil, err
+		}
+		byEngine = append(byEngine, map[string]interface{}{"engine": engine, "count": count})
+	}
+	engineRows.Close()
+
+	outcomeRows, err := db.Query(`
+		SELECT lv.assessment_outcome, COUNT(*)::int
+		FROM lodgement_validation lv
+		JOIN lodgement l ON l.lodgement_number = lv.lodgement_number
+		WHERE l.ingress_location = $1
+		GROUP BY lv.assessment_outcome
+		ORDER BY COUNT(*) DESC
+	`, loc)
+	if err != nil {
+		return nil, err
+	}
+	var byOutcome []map[string]interface{}
+	for outcomeRows.Next() {
+		var outcome string
+		var count int
+		if err := outcomeRows.Scan(&outcome, &count); err != nil {
+			outcomeRows.Close()
+			return nil, err
+		}
+		byOutcome = append(byOutcome, map[string]interface{}{"outcome": outcome, "count": count})
+	}
+	outcomeRows.Close()
+
+	var riskFloor, riskCeiling int
+	var riskAvg float64
+	if err := db.QueryRow(`
+		SELECT
+		    COALESCE(MIN(lv.risk_score), 0)::int,
+		    COALESCE(AVG(lv.risk_score), 0)::float8,
+		    COALESCE(MAX(lv.risk_score), 0)::int
+		FROM lodgement_validation lv
+		JOIN lodgement l ON l.lodgement_number = lv.lodgement_number
+		WHERE l.ingress_location = $1
+	`, loc).Scan(&riskFloor, &riskAvg, &riskCeiling); err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"totalThisHour": totalThisHour,
+		"totalAllTime":  totalAllTime,
+		"byEngine":      byEngine,
+		"byOutcome":     byOutcome,
+		"riskScore":     map[string]interface{}{"floor": riskFloor, "average": riskAvg, "ceiling": riskCeiling},
+	}, nil
 }
 
 func resolveTotalLodgements(p graphql.ResolveParams) (interface{}, error) {

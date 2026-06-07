@@ -32,7 +32,7 @@ export default function App() {
     <ApolloProvider client={client}>
       <div className="dashboard">
         <header className="dashboard-header">
-          <h1>File <span>Repository</span> Dashboard</h1>
+          <h1>PoC <span>statistics</span> observability</h1>
           <span className="header-sub">live via GraphQL</span>
           <nav style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
             {NAV_ITEMS.map(item => (

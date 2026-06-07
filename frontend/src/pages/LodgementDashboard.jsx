@@ -4,6 +4,7 @@ import LodgementByEnginePie from '../components/LodgementByEnginePie'
 import LodgementByStatusPie from '../components/LodgementByStatusPie'
 import LodgementByIngressPie from '../components/LodgementByIngressPie'
 import FilesPerLodgement from '../components/FilesPerLodgement'
+import UI2Stats from '../components/UI2Stats'
 
 const KPI_QUERY = gql`query GetLodgementKPI { totalLodgements }`
 
@@ -46,6 +47,8 @@ export default function LodgementDashboard() {
           <FilesPerLodgement />
         </div>
       </div>
+
+      <UI2Stats />
     </>
   )
 }
