@@ -178,6 +178,37 @@ func setupDB() error {
 		}
 	}
 
+	// Lodgement tables — operational data, no retention policy
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS lodgement (
+			lodgement_number  VARCHAR(14) PRIMARY KEY,
+			receipt_number    VARCHAR(8)  UNIQUE,
+			processing_engine VARCHAR(4),
+			submitted_at      TIMESTAMPTZ,
+			customer_number   VARCHAR(9),
+			customer_type     VARCHAR(10),
+			supplier_number   VARCHAR(9),
+			lodgement_status  VARCHAR(10),
+			ingress_location  VARCHAR(5)
+		)`,
+		`CREATE TABLE IF NOT EXISTS lodgement_objects (
+			id                       SERIAL PRIMARY KEY,
+			lodgement_number         VARCHAR(14) REFERENCES lodgement(lodgement_number),
+			first_analysis_complete  BOOLEAN,
+			second_analysis_complete BOOLEAN,
+			file_metadata_id         BIGINT
+		)`,
+		`CREATE TABLE IF NOT EXISTS lodgement_validation (
+			lodgement_number   VARCHAR(14) PRIMARY KEY REFERENCES lodgement(lodgement_number),
+			risk_score         INT,
+			assessment_outcome VARCHAR(11)
+		)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("setup lodgement table: %w", err)
+		}
+	}
+
 	// Reset stats tables if RESET_STATS env var is set.
 	// Use this once after any suspected double-counting incident, then unset it.
 	if os.Getenv("RESET_STATS") == "true" {

@@ -167,6 +167,44 @@ const STATS_TABLES = [
   },
 ]
 
+const LODGEMENT_TABLES = [
+  {
+    title: 'lodgement',
+    color: '#fb923c',
+    columns: [
+      { name: 'lodgement_number',  type: 'VARCHAR(14)', constraint: 'PRIMARY KEY — XXXX-XXXX-XXXX',              pk: true },
+      { name: 'receipt_number',    type: 'VARCHAR(8)',  constraint: 'UNIQUE — 8 digits' },
+      { name: 'processing_engine', type: 'VARCHAR(4)',  constraint: 'PE-1 30% | PE-2 50% | PE-3 20%' },
+      { name: 'submitted_at',      type: 'TIMESTAMPTZ', constraint: 'ISO 8601 Zulu — within ±1hr of file_created_at' },
+      { name: 'customer_number',   type: 'VARCHAR(9)',  constraint: '9 digits' },
+      { name: 'customer_type',     type: 'VARCHAR(10)', constraint: 'type_1 | type_2 | type_3' },
+      { name: 'supplier_number',   type: 'VARCHAR(9)',  constraint: 'XXXX-XXXX format' },
+      { name: 'lodgement_status',  type: 'VARCHAR(10)', constraint: 'DRAFT 10% | TERMINATED 10% | LODGED 80%' },
+      { name: 'ingress_location',  type: 'VARCHAR(5)',  constraint: 'UI-1 10% | UI-2 60% | API-1 30%' },
+    ],
+  },
+  {
+    title: 'lodgement_objects',
+    color: '#2dd4bf',
+    columns: [
+      { name: 'id',                       type: 'SERIAL',      constraint: 'PRIMARY KEY',                              pk: true },
+      { name: 'lodgement_number',         type: 'VARCHAR(14)', constraint: 'FK → lodgement' },
+      { name: 'first_analysis_complete',  type: 'BOOLEAN',     constraint: 'mirrors file_metadata.first_analysis_result' },
+      { name: 'second_analysis_complete', type: 'BOOLEAN',     constraint: 'true once second_analysis_complete_at ≤ NOW()' },
+      { name: 'file_metadata_id',         type: 'BIGINT',      constraint: 'ref to file_metadata.id — no FK (file pruned after 2 days)' },
+    ],
+  },
+  {
+    title: 'lodgement_validation',
+    color: '#a78bfa',
+    columns: [
+      { name: 'lodgement_number',   type: 'VARCHAR(14)', constraint: 'PRIMARY KEY, FK → lodgement', pk: true },
+      { name: 'risk_score',         type: 'INT',         constraint: '1–100 (higher = more risk)' },
+      { name: 'assessment_outcome', type: 'VARCHAR(11)', constraint: 'PASSED 60% | INVESTIGATE 10% | REJECTED 30%' },
+    ],
+  },
+]
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function About() {
@@ -193,8 +231,8 @@ export default function About() {
 
         {/* Row 2: BAU → file_metadata → Aggregator → Stats DB */}
         <div style={{ display: 'flex', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 0 }}>
-          <Node label="BAU File Imitator" sublabel="200 records / hour" color="#f5c542" border="#f5c54244"
-            items={[{ name: 'Go', version: '1.21' }, { name: 'rate', version: '~1 per 18s' }, { name: 'file_received_at', version: 'always NOW' }]} />
+          <Node label="BAU File Imitator" sublabel="300 files / hour" color="#f5c542" border="#f5c54244"
+            items={[{ name: 'Go', version: '1.21' }, { name: 'rate', version: '~1 per 12s' }, { name: 'file_received_at', version: 'always NOW' }]} />
           <Arrow label="SQL / TCP" color="#f5c54266" labelColor="#f5c54299" />
           <Node label="file_metadata" sublabel="source table — 2-day retention" color="#f04f5a" border="#f04f5a44"
             items={[{ name: 'retention', version: '2 days' }, { name: 'reason', version: 'privacy policy' }, { name: 'records', version: 'auto-pruned' }]} />
@@ -206,6 +244,21 @@ export default function About() {
             items={[{ name: 'survive', version: 'retention window' }, { name: 'serve', version: 'all dashboard queries' }]} />
         </div>
 
+        {/* Row 3: BAU → lodgement tables */}
+        <div style={{ display: 'flex', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 0 }}>
+          <Node label="BAU File Imitator" sublabel="~50 lodgements / hour" color="#f5c542" border="#f5c54244"
+            items={[{ name: 'rate', version: '~1 per 72s' }, { name: 'files per lodgement', version: '1–12' }]} />
+          <Arrow label="SQL / TCP" color="#fb923c66" labelColor="#fb923c99" />
+          <Node label="lodgement" sublabel="no retention — persists indefinitely" color="#fb923c" border="#fb923c44"
+            items={[{ name: 'processing_engine', version: 'PE-1/2/3' }, { name: 'lodgement_status', version: 'DRAFT|TERM|LODGED' }, { name: 'ingress_location', version: 'UI-1|UI-2|API-1' }]} />
+          <Arrow label="1 → many" color="#2dd4bf66" labelColor="#2dd4bf99" />
+          <Node label="lodgement_objects" sublabel="links lodgement to file_metadata" color="#2dd4bf" border="#2dd4bf44"
+            items={[{ name: 'files per lodgement', version: '1–12' }, { name: 'file_metadata_id', version: 'ref only — no FK' }]} />
+          <Arrow label="1 → 1" color="#a78bfa66" labelColor="#a78bfa99" />
+          <Node label="lodgement_validation" sublabel="one per lodgement" color="#a78bfa" border="#a78bfa44"
+            items={[{ name: 'risk_score', version: '1–100' }, { name: 'PASSED', version: '60%' }, { name: 'INVESTIGATE', version: '10%' }, { name: 'REJECTED', version: '30%' }]} />
+        </div>
+
         {/* Notes */}
         <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
           <div style={{ ...mono, fontSize: 11, color: '#56607a', background: '#12151e', border: '1px solid #252a38', borderRadius: 8, padding: '10px 14px', flex: 1 }}>
@@ -213,6 +266,9 @@ export default function About() {
           </div>
           <div style={{ ...mono, fontSize: 11, color: '#56607a', background: '#12151e', border: '1px solid #f04f5a33', borderRadius: 8, padding: '10px 14px', flex: 1 }}>
             <span style={{ color: '#f04f5a' }}>privacy</span>{'  '}raw file records deleted after 2 days — all statistics persist indefinitely in stats tables
+          </div>
+          <div style={{ ...mono, fontSize: 11, color: '#56607a', background: '#12151e', border: '1px solid #fb923c33', borderRadius: 8, padding: '10px 14px', flex: 1 }}>
+            <span style={{ color: '#fb923c' }}>lodgement</span>{'  '}lodgement_objects references file_metadata_id with no FK — file_metadata is pruned after 2 days but lodgement records survive
           </div>
         </div>
       </div>
@@ -232,6 +288,19 @@ export default function About() {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
             {STATS_TABLES.map(t => <SchemaTable key={t.title} {...t} />)}
+          </div>
+        </div>
+      </div>
+
+      {/* ── DB Schema: lodgement tables ── */}
+      <div className="chart-card">
+        <h2><span className="dot" style={{ background: 'var(--orange)' }} />Database Schema — Lodgement Tables</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ ...mono, fontSize: 11, color: '#56607a', background: '#12151e', border: '1px solid #fb923c22', borderRadius: 8, padding: '10px 14px' }}>
+            <span style={{ color: '#fb923c' }}>written by</span>{'  '}BAU Imitator ~50/hr — <span style={{ color: '#fb923c' }}>no retention policy</span>{'  '}records persist indefinitely — lodgement_objects references file_metadata_id without a FK constraint (file_metadata is pruned after 2 days)
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            {LODGEMENT_TABLES.map(t => <SchemaTable key={t.title} {...t} />)}
           </div>
         </div>
       </div>
