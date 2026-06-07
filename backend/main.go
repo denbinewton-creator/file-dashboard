@@ -493,6 +493,39 @@ var lagStatsType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var lodgementEngineCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "LodgementEngineCount",
+	Fields: graphql.Fields{
+		"engine": &graphql.Field{Type: graphql.String},
+		"count":  &graphql.Field{Type: graphql.Int},
+	},
+})
+
+var lodgementStatusCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "LodgementStatusCount",
+	Fields: graphql.Fields{
+		"status": &graphql.Field{Type: graphql.String},
+		"count":  &graphql.Field{Type: graphql.Int},
+	},
+})
+
+var lodgementIngressCountType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "LodgementIngressCount",
+	Fields: graphql.Fields{
+		"location": &graphql.Field{Type: graphql.String},
+		"count":    &graphql.Field{Type: graphql.Int},
+	},
+})
+
+var filesPerLodgementType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "FilesPerLodgement",
+	Fields: graphql.Fields{
+		"floor":   &graphql.Field{Type: graphql.Int},
+		"average": &graphql.Field{Type: graphql.Float},
+		"ceiling": &graphql.Field{Type: graphql.Int},
+	},
+})
+
 // ── GraphQL API (Function 2) ──────────────────────────────────────────────────
 
 func buildSchema() (graphql.Schema, error) {
@@ -506,6 +539,11 @@ func buildSchema() (graphql.Schema, error) {
 			"recentFileCounts":    {Type: recentCountsType, Resolve: resolveRecentFileCounts},
 			"firstAnalysisResult": {Type: analysisResultType, Resolve: resolveFirstAnalysisResult},
 			"lagStats":            {Type: graphql.NewList(lagStatsType), Resolve: resolveLagStats},
+			"totalLodgements":     {Type: graphql.Int, Resolve: resolveTotalLodgements},
+			"lodgementsByEngine":  {Type: graphql.NewList(lodgementEngineCountType), Resolve: resolveLodgementsByEngine},
+			"lodgementsByStatus":  {Type: graphql.NewList(lodgementStatusCountType), Resolve: resolveLodgementsByStatus},
+			"lodgementsByIngress": {Type: graphql.NewList(lodgementIngressCountType), Resolve: resolveLodgementsByIngress},
+			"filesPerLodgement":   {Type: filesPerLodgementType, Resolve: resolveFilesPerLodgement},
 		},
 	})
 	return graphql.NewSchema(graphql.SchemaConfig{Query: query})
@@ -648,6 +686,88 @@ func resolveLagStats(p graphql.ResolveParams) (interface{}, error) {
 		})
 	}
 	return out, nil
+}
+
+func resolveTotalLodgements(p graphql.ResolveParams) (interface{}, error) {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lodgement`).Scan(&count); err != nil {
+		return nil, err
+	}
+	return count, nil
+}
+
+func resolveLodgementsByEngine(p graphql.ResolveParams) (interface{}, error) {
+	rows, err := db.Query(`SELECT processing_engine, COUNT(*)::int FROM lodgement GROUP BY processing_engine ORDER BY count DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]interface{}
+	for rows.Next() {
+		var engine string
+		var count int
+		if err := rows.Scan(&engine, &count); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]interface{}{"engine": engine, "count": count})
+	}
+	return out, nil
+}
+
+func resolveLodgementsByStatus(p graphql.ResolveParams) (interface{}, error) {
+	rows, err := db.Query(`SELECT lodgement_status, COUNT(*)::int FROM lodgement GROUP BY lodgement_status ORDER BY count DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]interface{}
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]interface{}{"status": status, "count": count})
+	}
+	return out, nil
+}
+
+func resolveLodgementsByIngress(p graphql.ResolveParams) (interface{}, error) {
+	rows, err := db.Query(`SELECT ingress_location, COUNT(*)::int FROM lodgement GROUP BY ingress_location ORDER BY count DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]interface{}
+	for rows.Next() {
+		var location string
+		var count int
+		if err := rows.Scan(&location, &count); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]interface{}{"location": location, "count": count})
+	}
+	return out, nil
+}
+
+func resolveFilesPerLodgement(p graphql.ResolveParams) (interface{}, error) {
+	var floor, ceiling int
+	var average float64
+	err := db.QueryRow(`
+		SELECT
+		    COALESCE(MIN(file_count), 0)::int,
+		    COALESCE(AVG(file_count), 0)::float8,
+		    COALESCE(MAX(file_count), 0)::int
+		FROM (
+		    SELECT lodgement_number, COUNT(*) AS file_count
+		    FROM lodgement_objects
+		    GROUP BY lodgement_number
+		) sub
+	`).Scan(&floor, &average, &ceiling)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"floor": floor, "average": average, "ceiling": ceiling}, nil
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────

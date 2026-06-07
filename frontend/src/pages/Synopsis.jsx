@@ -110,16 +110,25 @@ export default function Synopsis() {
       {/* ── Data pipeline ── */}
       <Section title="Data Pipeline" dot={s}>
         <PipelineRow nodes={[
-          { label: 'BAU Imitator', color: n, sub: '~200 inserts/hr' },
+          { label: 'BAU Imitator', color: n, sub: '300 files/hr' },
           { label: 'file_metadata', color: r, sub: '2-day retention' },
           { label: 'Aggregator goroutine', color: s, sub: 'every 30 s' },
           { label: '8 stats tables', color: t, sub: 'persist forever' },
           { label: 'GraphQL API', color: k, sub: 'read-only' },
           { label: 'Apollo / React', color: '#2dd4bf', sub: '20 s refetch' },
         ]} />
+        <PipelineRow nodes={[
+          { label: 'BAU Imitator', color: n, sub: '~50 lodgements/hr' },
+          { label: 'lodgement', color: t, sub: 'no retention' },
+          { label: 'lodgement_objects', color: t },
+          { label: 'lodgement_validation', color: t },
+          { label: 'GraphQL API', color: k, sub: 'direct query' },
+          { label: 'Apollo / React', color: '#2dd4bf', sub: '20 s refetch' },
+        ]} />
         <Note color={c}>
-          file_metadata is a staging table — pruned after 2 days for privacy. All dashboard queries
-          read from stats tables that accumulate counts beyond the retention window.
+          file_metadata is a staging table — pruned after 2 days for privacy. All file dashboard
+          queries read from stats tables that accumulate counts beyond the retention window.
+          Lodgement tables are queried directly; they persist indefinitely with no retention policy.
           The aggregator is the only writer to stats tables; GraphQL resolvers are read-only.
         </Note>
       </Section>
@@ -189,8 +198,9 @@ export default function Synopsis() {
         </div>
 
         <KVTable rows={[
-          ['schema',          '7 query fields, no mutations. Built once at startup via graphql-go.'],
-          ['resolvers',       'All query stats tables only. O(1) or O(small set) — no file_metadata scans.'],
+          ['schema',          '12 query fields, no mutations. Built once at startup via graphql-go.'],
+          ['file resolvers',  'All query stats tables only. O(1) or O(small set) — no file_metadata scans.'],
+          ['lodgement resolvers', 'Query lodgement / lodgement_objects directly. totalLodgements and 3 GROUP BY aggregations; filesPerLodgement uses a subquery for MIN/AVG/MAX of per-lodgement file counts.'],
           ['nullable columns','sql.NullBool / sql.NullTime guard against NULL scan panics. Seed records lack analysis timestamps; aggregator skips analysis stats for those rows.'],
           ['CORS',            'Wildcard origin — frontend on Vercel, backend on Railway, different domains.'],
           ['transport',       'Handles POST (JSON body) and GET (?query=...) for GraphQL.'],
@@ -248,9 +258,12 @@ export default function Synopsis() {
         ]} />
 
         <KVTable rows={[
-          ['routing',       'useState (no router). Page switch unmounts components; their queries become inactive and are excluded from AutoRefresh.'],
+          ['routing',       'useState (no router). Four pages: File Dashboard, Lodgement Dashboard, About, Synopsis. Page switch unmounts components; their queries become inactive and are excluded from AutoRefresh.'],
+          ['FileDashboard', 'KPIBar (Total Files + Overdue), AnalysisResult, RecentFileCounts, LagStats, 3 file pies, OverdueFilesTable.'],
+          ['LodgementDashboard', 'LodgementKPI (Total Lodgements), 3 lodgement pies (engine/status/ingress), FilesPerLodgement floor/avg/ceiling.'],
           ['pie charts',    'Recharts PieChart. Label renderer suppressed at < 5% to prevent overlap on small slices. Custom tooltip reads payload[0].payload.fill for slice-matched colour.'],
           ['LagStats',      'Formats seconds: ≥ 60 s → "mm.mm m", else "ss.ss s". Reads stats_lag via lagStats resolver.'],
+          ['FilesPerLodgement', 'Single card, floor/average/ceiling layout mirroring LagStats. Reads filesPerLodgement resolver (MIN/AVG/MAX subquery over lodgement_objects).'],
           ['OverdueFilesTable', 'Client-side pagination (PAGE_SIZE = 20). Data comes from stats_disposal_tracking via overdueFiles resolver; sorted by disposal_date ASC (most overdue first).'],
           ['KPIBar',        'Derives "Total Files" by summing counts from filesByCategory — stats_totals.total_files is not exposed as a GraphQL field.'],
         ]} />
@@ -270,9 +283,12 @@ export default function Synopsis() {
         ]} />
 
         <KVTable rows={[
-          ['insert cadence',      '5–31 s uniform random → mean 18 s → ~200/hr.'],
+          ['file cadence',        '3–21 s uniform random → mean 12 s → 300/hr. Goroutine 1.'],
+          ['lodgement cadence',   '12–132 s uniform random → mean 72 s → ~50/hr. Goroutine 2. At a 1–12 files per lodgement ratio this is consistent with 300 files/hr.'],
+          ['shutdown',            'Shared done channel closed on SIGTERM/SIGINT. Both goroutines select on done so neither orphans on signal.'],
           ['file_received_at',    'Always NOW(). file_created_at is NOW() minus a random 5 min – 3 month lag, simulating real-world creation-to-receipt delay without a queue.'],
-          ['first_analysis_result', 'rand.Float64() < 0.95 — 95% PASSED, 5% FAILED, consistent with seed data constraint.'],
+          ['first_analysis_result', 'rand.Float64() < 0.95 — 95% PASSED, 5% FAILED.'],
+          ['lodgement files',     'ORDER BY RANDOM() LIMIT $1 (1–12). submitted_at = latest file_created_at ± 1 hr. All three lodgement inserts wrapped in one transaction.'],
           ['PID file',            'Writes PID to bau.pid at startup; manage.ps1 reads it for taskkill on stop.'],
           ['DB connect',          'Same retry loop as backend: 15 × 2 s — Railway postgres may be slow on cold start.'],
         ]} />

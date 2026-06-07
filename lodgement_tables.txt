@@ -1,0 +1,38 @@
+lodgement_tables
+{
+  "lodgement": {
+    "lodgement_number":   "<12 numbers in groups of 4 with dash between, must always be unique>",
+    "receipt_number":     "<8 numbers must be unique>",
+    "processing_engine":  "<will be one of 3, "PE-1", "PE-2", "PE-3">",
+    "submitted_at":       "<ISO8601 format Zulu time>",
+    "customer_number":    "<Same as in file_metadata_object>",
+    "customer_type":      "<Same as in file_metadata_object>",
+    "supplier_number":    "<8 numbers in 2 groups of 4 with dash between, must be unique>",
+    "lodgement_status":   "<will be one of 3 "DRAFT", "TERMINATED", "LODGED">",
+    "ingress_location":   "<will be one of 3, "UI-1", "UI-2", "API-1">"
+  },
+  "lodgement_objects": [
+    {
+      "lodgement_number":          "<Same as in lodgement object>",
+      "first_analysis_complete":   "<bool, directly related to first_analysis_result on file_metadata_object>",
+      "second_analysis_complete":  "<bool, directly related to second_analysis_complete_at on file_metadata_object, FALSE until time passed then TRUE>",
+      "file_metadata_id":          "<Same as in file_metadata_object>"
+    }
+  ],
+  "lodgement_validation": {
+    "lodgement_number":"<Same as in lodgement object>",
+    "risk_score":"<a number between 1 & 100, higher the number the more risk>",
+    "assessment_outcome":"< will be one of 3, "PASSED", "INVESTIGATE", "REJECTED">"
+  }
+}
+
+lodgement_table_parameters
+
+a lodgement object can have minimum of 1 and up to 12 files from the file_metadata_object list associated with it 
+the lodgement_objects table is the link between the lodgement and the file 
+beacuse of above lodgement:submitted_at and file_metadata_object:file_created_at timestamps need be within a margin of eachother 
+each lodgement object will have one lodgement_validation 
+processing_engine distrobution "PE-1" approx 30%, "PE-2" approx 50%, "PE-3" approx 20% 
+ingress_location distrobution "UI-1" approx 10%, "UI-2" approx 60%, "API-1" approx 30%
+assessment_outcome distrobution "PASSED" approx 60%, "INVESTIGATE" approx 10%, "REJECTED" approx 30%
+lodgement_status distrobution "DRAFT" approx 10%, "TERMINATED" approx 10%, "LODGED" approx 80%  
