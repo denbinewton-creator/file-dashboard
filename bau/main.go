@@ -215,15 +215,10 @@ func insertLodgement(db *sql.DB) {
 		return
 	}
 
-	// submitted_at = latest file_created_at ± up to 1 hour.
-	latestCreatedAt := files[0].createdAt
-	for _, f := range files[1:] {
-		if f.createdAt.After(latestCreatedAt) {
-			latestCreatedAt = f.createdAt
-		}
-	}
-	offsetSec   := rand.Intn(7200) - 3600
-	submittedAt := latestCreatedAt.Add(time.Duration(offsetSec) * time.Second)
+	// submitted_at is anchored to now (±5 min) so that "this hour" dashboard metrics stay live.
+	// file_created_at represents the original document creation date (can be months ago);
+	// submitted_at represents when the lodgement entered the system, which is always recent.
+	submittedAt := now.Add(-time.Duration(rand.Intn(300)) * time.Second)
 
 	// Unique identifiers: timestamp-based digits mixed with random to avoid collision.
 	n               := now.UnixNano()
